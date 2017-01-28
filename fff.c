@@ -19,13 +19,22 @@ typedef struct METASTRUCT {
 } METASTRUCT;
 
 DWORD prevTime = 0;
-DWORD prevVkCode = 0;
+DWORD prevData = 0;
 KEYBDINPUT *keyRecord;
 MOUSEINPUT *mouseRecord;
-int a=1;
+METASTRUCT *meta;
 
 LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
-  if (nCode >= 0) {
+  if (nCode == 0) {
+
+    mouseRecord->time = GetTickCount();
+    // don't record same key again
+    if (mouseRecord->time == prevTime && wParam == prevData) {
+      /* return CallNextHookEx(NULL, nCode, wParam, lParam); */
+    }
+    prevTime = mouseRecord->time;
+    prevData = wParam;
+
     DWORD dwFlags = 0;
     switch(wParam) {
     case WM_MOUSEMOVE:
@@ -46,19 +55,15 @@ LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     }
 
     PMOUSEHOOKSTRUCTEX p = (PMOUSEHOOKSTRUCTEX) lParam;
-    mouseRecord->dx = p->pt.x;
-    mouseRecord->dy = p->pt.y;
-    mouseRecord->mouseData = p->mouseData;
-    mouseRecord->dwFlags = dwFlags;
-    mouseRecord->time = GetTickCount();
+    mouseRecord->dx = p->pt.x * (0xFFFF / GetSystemMetrics(SM_CXSCREEN));
+    mouseRecord->dy = p->pt.y * (0xFFFF / GetSystemMetrics(SM_CYSCREEN));
+    /* mouseRecord->mouseData = p->mouseData; */
+    mouseRecord->dwFlags = dwFlags | MOUSEEVENTF_ABSOLUTE;
     mouseRecord->dwExtraInfo = p->dwExtraInfo;
 
-    if(a==1) {
-      DWORD mode = INPUT_MOUSE;
-      fwrite(&mode, sizeof(DWORD), 1, logFile);
-      fwrite(mouseRecord, sizeof(MOUSEINPUT), 1, logFile);
-      /* a=0; */
-    }
+    DWORD mode = INPUT_MOUSE;
+    fwrite(&mode, sizeof(DWORD), 1, logFile);
+    fwrite(mouseRecord, sizeof(MOUSEINPUT), 1, logFile);
   }
   return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
@@ -77,9 +82,11 @@ LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     BOOL isUp = wParam == WM_KEYUP || wParam == WM_SYSKEYUP;
 
     // don't record same key again
-    if (keyRecord->time == prevTime && keyRecord->wVk == prevVkCode) {
+    if (keyRecord->time == prevTime && keyRecord->wVk == prevData) {
       return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
+    prevTime = keyRecord->time;
+    prevData = keyRecord->wVk;
 
     DWORD EXTENDED = keyRecord->dwFlags & LLKHF_EXTENDED ? KEYEVENTF_EXTENDEDKEY : 0;
     DWORD UP = isUp ? KEYEVENTF_KEYUP : 0;
@@ -92,14 +99,15 @@ LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     fwrite(keyRecord, sizeof(KEYBDINPUT), 1, logFile);
     /* fflush(logFile); */
 
-    prevTime = keyRecord->time;
-    prevVkCode = keyRecord->wVk;
   }
 
   return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 
 DWORD WINAPI ThreadedCode(LPVOID) {
+  free(meta);
+  free(keyRecord);
+  free(mouseRecord);
   WaitForSingleObject(quitEventHandle, INFINITE);
 
   CloseHandle(singleInstanceMutexHandle);
@@ -125,9 +133,9 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     char logFilePath[MAX_PATH] = {0};
     sprintf(logFilePath, "log.key");
 
-    METASTRUCT *meta = (METASTRUCT *)malloc(sizeof(METASTRUCT));
-    keyRecord = (KEYBDINPUT *)malloc(sizeof(KEYBDINPUT));
-    mouseRecord = (MOUSEINPUT *)malloc(sizeof(MOUSEINPUT));
+    meta = (METASTRUCT *)calloc(sizeof(METASTRUCT), 1);
+    keyRecord = (KEYBDINPUT *)calloc(sizeof(KEYBDINPUT), 1);
+    mouseRecord = (MOUSEINPUT *)calloc(sizeof(MOUSEINPUT), 1);
 
     meta->version = 1;
     meta->startTime = GetTickCount();
