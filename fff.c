@@ -10,6 +10,7 @@ SYSTEMTIME sysTime;
 
 HANDLE singleInstanceMutexHandle;
 HHOOK keyboardHookHandle;
+HHOOK mouseHookHandle;
 HANDLE quitEventHandle;
 
 typedef struct METASTRUCT {
@@ -20,6 +21,47 @@ typedef struct METASTRUCT {
 DWORD prevTime = 0;
 DWORD prevVkCode = 0;
 KEYBDINPUT *keyRecord;
+MOUSEINPUT *mouseRecord;
+int a=1;
+
+LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
+  if (nCode >= 0) {
+    DWORD dwFlags = 0;
+    switch(wParam) {
+    case WM_MOUSEMOVE:
+      dwFlags = MOUSEEVENTF_MOVE;
+      break;
+    case WM_RBUTTONDOWN:
+      dwFlags = MOUSEEVENTF_RIGHTDOWN;
+      break;
+    case WM_RBUTTONUP:
+      dwFlags = MOUSEEVENTF_RIGHTUP;
+      break;
+    case WM_LBUTTONDOWN:
+      dwFlags = MOUSEEVENTF_LEFTDOWN;
+      break;
+    case WM_LBUTTONUP:
+      dwFlags = MOUSEEVENTF_LEFTUP;
+      break;
+    }
+
+    PMOUSEHOOKSTRUCTEX p = (PMOUSEHOOKSTRUCTEX) lParam;
+    mouseRecord->dx = p->pt.x;
+    mouseRecord->dy = p->pt.y;
+    mouseRecord->mouseData = p->mouseData;
+    mouseRecord->dwFlags = dwFlags;
+    mouseRecord->time = GetTickCount();
+    mouseRecord->dwExtraInfo = p->dwExtraInfo;
+
+    if(a==1) {
+      DWORD mode = INPUT_MOUSE;
+      fwrite(&mode, sizeof(DWORD), 1, logFile);
+      fwrite(mouseRecord, sizeof(MOUSEINPUT), 1, logFile);
+      /* a=0; */
+    }
+  }
+  return CallNextHookEx(NULL, nCode, wParam, lParam);
+}
 
 LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
   if (nCode == HC_ACTION) {
@@ -28,7 +70,7 @@ LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     keyRecord->wVk = p->vkCode;
     keyRecord->wScan = p->scanCode;
     keyRecord->dwFlags = p->flags;
-    keyRecord->time = p->time;
+    keyRecord->time = GetTickCount(); //p->time;
     keyRecord->dwExtraInfo = 0;
 
     /* BOOL isDown = wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN; */
@@ -45,6 +87,8 @@ LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     keyRecord->dwFlags = EXTENDED | UP;
 
     // fprintf(logFile, "%02x", isDown);
+    DWORD mode = INPUT_KEYBOARD;
+    fwrite(&mode, sizeof(DWORD), 1, logFile);
     fwrite(keyRecord, sizeof(KEYBDINPUT), 1, logFile);
     /* fflush(logFile); */
 
@@ -60,7 +104,8 @@ DWORD WINAPI ThreadedCode(LPVOID) {
 
   CloseHandle(singleInstanceMutexHandle);
   CloseHandle(quitEventHandle);
-  UnhookWindowsHookEx(keyboardHookHandle);
+  /* UnhookWindowsHookEx(keyboardHookHandle); */
+  UnhookWindowsHookEx(mouseHookHandle);
   fclose(logFile);
 
   ExitProcess(0);
@@ -82,6 +127,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
 
     METASTRUCT *meta = (METASTRUCT *)malloc(sizeof(METASTRUCT));
     keyRecord = (KEYBDINPUT *)malloc(sizeof(KEYBDINPUT));
+    mouseRecord = (MOUSEINPUT *)malloc(sizeof(MOUSEINPUT));
 
     meta->version = 1;
     meta->startTime = GetTickCount();
@@ -90,8 +136,8 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     logFile = fopen(logFilePath, "w");
     fwrite(meta, sizeof(METASTRUCT), 1, logFile);
 
-    keyboardHookHandle =
-        SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardHookDelegate, currentInstance, 0);
+    /* keyboardHookHandle = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardHookDelegate, currentInstance, 0); */
+    mouseHookHandle = SetWindowsHookEx(WH_MOUSE_LL, MouseHookDelegate, currentInstance, 0);
     {
       quitEventHandle = CreateEvent(NULL, FALSE, FALSE, quitEventName);
 

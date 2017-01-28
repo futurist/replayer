@@ -36,36 +36,41 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     prevTime = meta->startTime;
     fprintf(logFile2, "time: %d\n", meta->startTime);
     INPUT ip = {0};
+    char mode = 0;
 
-    while (!feof(logFile) && fread(keyRecord, sizeof(KEYBDINPUT), 1, logFile) == 1) {
-      if (prevTime) {
-        timeSpan = keyRecord->time - prevTime;
-        if (timeSpan < 0) {
-          /* perror("Error time record"); */
-          /* return 3; */
+    while (!feof(logFile) && fread(&mode, sizeof(char), 1, logFile)>0) {
+
+      // it's keybd event
+      if(mode == INPUT_KEYBOARD && fread(keyRecord, sizeof(KEYBDINPUT), 1, logFile) == 1) {
+        if (prevTime) {
+          timeSpan = keyRecord->time - prevTime;
+          if (timeSpan < 0) {
+            /* perror("Error time record"); */
+            /* return 3; */
+          }
+          if (timeSpan > 0) sleep(timeSpan);
+
+          /* DWORD isExtended = keyRecord->flags & LLKHF_EXTENDED ? KEYEVENTF_EXTENDEDKEY : 0; */
+          /* DWORD isUp = keyRecord->flags & LLKHF_UP ? KEYEVENTF_KEYUP : 0; */
+          /* fprintf(logFile2, " %c %X, %X %d %X %X\n", keyRecord->vkCode, keyRecord->scanCode, keyRecord->flags, */
+          /*         keyRecord->time, isExtended, isUp); */
+
+          // Set up a generic keyboard event.
+          ip.type = INPUT_KEYBOARD;
+          ip.ki.wScan = keyRecord->wScan;  // hardware scan code for key
+          ip.ki.time = 0;
+          ip.ki.dwExtraInfo = keyRecord->dwExtraInfo;
+
+          // Press the "A" key
+          ip.ki.wVk = keyRecord->wVk;     // virtual-key code for the "a" key
+          ip.ki.dwFlags = keyRecord->dwFlags;  // 0 for key press
+          SendInput(1, &ip, sizeof(INPUT));
+
+          /* keybd_event(keyRecord->vkCode, keyRecord->scanCode, isExtended | isUp, */
+          /*             keyRecord->dwExtraInfo); */
         }
-        if (timeSpan > 0) sleep(timeSpan);
-
-        /* DWORD isExtended = keyRecord->flags & LLKHF_EXTENDED ? KEYEVENTF_EXTENDEDKEY : 0; */
-        /* DWORD isUp = keyRecord->flags & LLKHF_UP ? KEYEVENTF_KEYUP : 0; */
-        /* fprintf(logFile2, " %c %X, %X %d %X %X\n", keyRecord->vkCode, keyRecord->scanCode, keyRecord->flags, */
-        /*         keyRecord->time, isExtended, isUp); */
-
-        // Set up a generic keyboard event.
-        ip.type = INPUT_KEYBOARD;
-        ip.ki.wScan = keyRecord->wScan;  // hardware scan code for key
-        ip.ki.time = 0;
-        ip.ki.dwExtraInfo = keyRecord->dwExtraInfo;
-
-        // Press the "A" key
-        ip.ki.wVk = keyRecord->wVk;     // virtual-key code for the "a" key
-        ip.ki.dwFlags = keyRecord->dwFlags;  // 0 for key press
-        SendInput(1, &ip, sizeof(INPUT));
-
-        /* keybd_event(keyRecord->vkCode, keyRecord->scanCode, isExtended | isUp, */
-        /*             keyRecord->dwExtraInfo); */
+        prevTime = keyRecord->time;
       }
-      prevTime = keyRecord->time;
     }
   }
 
