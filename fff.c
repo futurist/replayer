@@ -19,15 +19,15 @@ typedef struct METASTRUCT {
 
 DWORD prevTime = 0;
 DWORD prevVkCode = 0;
-PKBDLLHOOKSTRUCT keyRecord;
+KEYBDINPUT *keyRecord;
 
 LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
   if (nCode == HC_ACTION) {
     /* GetKeyboardState((PBYTE)&keyState); */
     PKBDLLHOOKSTRUCT p = (PKBDLLHOOKSTRUCT)lParam;
-    keyRecord->vkCode = p->vkCode;
-    keyRecord->scanCode = p->scanCode;
-    keyRecord->flags = p->flags;
+    keyRecord->wVk = p->vkCode;
+    keyRecord->wScan = p->scanCode;
+    keyRecord->dwFlags = p->flags;
     keyRecord->time = p->time;
     keyRecord->dwExtraInfo = 0;
 
@@ -35,21 +35,21 @@ LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     BOOL isUp = wParam == WM_KEYUP || wParam == WM_SYSKEYUP;
 
     // don't record same key again
-    if (keyRecord->time == prevTime && keyRecord->vkCode == prevVkCode) {
+    if (keyRecord->time == prevTime && keyRecord->wVk == prevVkCode) {
       return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
 
-    DWORD EXTENDED = keyRecord->flags & LLKHF_EXTENDED ? KEYEVENTF_EXTENDEDKEY : 0;
+    DWORD EXTENDED = keyRecord->dwFlags & LLKHF_EXTENDED ? KEYEVENTF_EXTENDEDKEY : 0;
     DWORD UP = isUp ? KEYEVENTF_KEYUP : 0;
 
-    keyRecord->flags = EXTENDED | UP;
+    keyRecord->dwFlags = EXTENDED | UP;
 
     // fprintf(logFile, "%02x", isDown);
-    fwrite(keyRecord, sizeof(KBDLLHOOKSTRUCT), 1, logFile);
+    fwrite(keyRecord, sizeof(KEYBDINPUT), 1, logFile);
     /* fflush(logFile); */
 
     prevTime = keyRecord->time;
-    prevVkCode = keyRecord->vkCode;
+    prevVkCode = keyRecord->wVk;
   }
 
   return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -81,7 +81,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     sprintf(logFilePath, "log.key");
 
     METASTRUCT *meta = (METASTRUCT *)malloc(sizeof(METASTRUCT));
-    keyRecord = (KBDLLHOOKSTRUCT *)malloc(sizeof(KBDLLHOOKSTRUCT));
+    keyRecord = (KEYBDINPUT *)malloc(sizeof(KEYBDINPUT));
 
     meta->version = 1;
     meta->startTime = GetTickCount();

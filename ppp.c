@@ -27,7 +27,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
   } else {
     int timeSpan = 0;
     METASTRUCT *meta = (METASTRUCT *)malloc(sizeof(METASTRUCT));
-    KBDLLHOOKSTRUCT *keyRecord = (KBDLLHOOKSTRUCT *)malloc(sizeof(KBDLLHOOKSTRUCT));
+    KEYBDINPUT *keyRecord = (KEYBDINPUT *)malloc(sizeof(KEYBDINPUT));
 
     if (fread(meta, sizeof(METASTRUCT), 1, logFile) != 1) {
       perror("Error read header");
@@ -37,7 +37,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     fprintf(logFile2, "time: %d\n", meta->startTime);
     INPUT ip = {0};
 
-    while (!feof(logFile) && fread(keyRecord, sizeof(KBDLLHOOKSTRUCT), 1, logFile) == 1) {
+    while (!feof(logFile) && fread(keyRecord, sizeof(KEYBDINPUT), 1, logFile) == 1) {
       if (prevTime) {
         timeSpan = keyRecord->time - prevTime;
         if (timeSpan < 0) {
@@ -53,13 +53,13 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
 
         // Set up a generic keyboard event.
         ip.type = INPUT_KEYBOARD;
-        ip.ki.wScan = keyRecord->scanCode;  // hardware scan code for key
+        ip.ki.wScan = keyRecord->wScan;  // hardware scan code for key
         ip.ki.time = 0;
         ip.ki.dwExtraInfo = keyRecord->dwExtraInfo;
 
         // Press the "A" key
-        ip.ki.wVk = keyRecord->vkCode;     // virtual-key code for the "a" key
-        ip.ki.dwFlags = keyRecord->flags;  // 0 for key press
+        ip.ki.wVk = keyRecord->wVk;     // virtual-key code for the "a" key
+        ip.ki.dwFlags = keyRecord->dwFlags;  // 0 for key press
         SendInput(1, &ip, sizeof(INPUT));
 
         /* keybd_event(keyRecord->vkCode, keyRecord->scanCode, isExtended | isUp, */
