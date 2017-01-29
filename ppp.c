@@ -40,14 +40,13 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     prevTime = meta->startTime;
     fprintf(logFile2, "time: %d\n", meta->startTime);
 
-    while (!feof(logFile) && fread(&mode, sizeof(DWORD), 1, logFile)>0) {
-
+    while (!feof(logFile) && fread(&mode, sizeof(DWORD), 1, logFile) > 0) {
       // it's mouse event
-      if(mode == INPUT_MOUSE && fread(mouseRecord, sizeof(MOUSEINPUT), 1, logFile) == 1) {
+      if (mode == INPUT_MOUSE && fread(mouseRecord, sizeof(MOUSEINPUT), 1, logFile) == 1) {
         timeSpan = mouseRecord->time - prevTime;
         prevTime = mouseRecord->time;
         if (timeSpan > 0) sleep(timeSpan);
-        fprintf(logFile2, "time: %X\n", mouseRecord->time);
+        fprintf(logFile2, "%X %X %X %X\n", mouseRecord->time, mouseRecord->dx, mouseRecord->dy, mouseRecord->dwFlags);
         ip.type = INPUT_MOUSE;
         ip.mi.dx = mouseRecord->dx;
         ip.mi.dy = mouseRecord->dy;
@@ -55,11 +54,19 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
         ip.mi.dwFlags = mouseRecord->dwFlags;
         ip.mi.dwExtraInfo = mouseRecord->dwExtraInfo;
         ip.mi.time = 0;
-        SendInput(1, &ip, sizeof(INPUT));
+        int ret = SendInput(1, &ip, sizeof(INPUT));
+        int err = GetLastError();
+        char buffer[8192]; // sufficently large buffer
+        if(ret==0 || err) {
+          sprintf (buffer, "SendInput sent %i %i", ret, err);
+          MessageBox (NULL, buffer, "Debug Message", MB_OK);
+          SendInput(1, &ip, sizeof(INPUT));
+        }
+        /* mouse_event(mouseRecord->dwFlags, mouseRecord->dx, mouseRecord->dy, mouseRecord->mouseData, 0); */
       }
 
       // it's keybd event
-      if(mode == INPUT_KEYBOARD && fread(keyRecord, sizeof(KEYBDINPUT), 1, logFile) == 1) {
+      if (mode == INPUT_KEYBOARD && fread(keyRecord, sizeof(KEYBDINPUT), 1, logFile) == 1) {
         timeSpan = keyRecord->time - prevTime;
         prevTime = keyRecord->time;
         if (timeSpan > 0) sleep(timeSpan);
@@ -76,7 +83,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
         ip.ki.dwExtraInfo = keyRecord->dwExtraInfo;
 
         // Press the "A" key
-        ip.ki.wVk = keyRecord->wVk;     // virtual-key code for the "a" key
+        ip.ki.wVk = keyRecord->wVk;          // virtual-key code for the "a" key
         ip.ki.dwFlags = keyRecord->dwFlags;  // 0 for key press
         SendInput(1, &ip, sizeof(INPUT));
 
