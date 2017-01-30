@@ -61,6 +61,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
   char *buf = malloc(fsize);
   DWORD nRead;
   if (!ReadFile(hFile, buf, fsize, &nRead, NULL)) {
+    CloseHandle(hFile);
     return msg(98);
   }
   CloseHandle(hFile);
@@ -71,7 +72,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
   source.buf = buf;
 
   /* sprintf(outputBuffer, "%i %x %x %p", fsize, source.point, source.size, source.buf); */
-  /* MessageBox(NULL, outputBuffer, "Debug Message", MB_OK); */
+  /* MessageBox(NULL, commandLine, "Debug Message", MB_OK); */
 
   if (readData(meta, sizeof(METASTRUCT), &source) != 1) {
     msg(100);

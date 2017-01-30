@@ -1,6 +1,19 @@
 #include <stdio.h>
 #include <windows.h>
 
+// lcc lack below definition
+#ifndef WM_MOUSEHWHEEL
+#define WM_MOUSEHWHEEL 0x020E
+#endif
+
+#ifndef MOUSEEVENTF_HWHEEL
+#define MOUSEEVENTF_HWHEEL 0x01000
+#endif
+
+#ifndef MOUSEEVENTF_WHEEL
+#define MOUSEEVENTF_WHEEL 0x0800
+#endif
+
 HANDLE logFile;
 DWORD nWritten = 0;
 char bufferForKeys[100];
@@ -60,12 +73,27 @@ LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
       case WM_LBUTTONUP:
         dwFlags = MOUSEEVENTF_LEFTUP;
         break;
+      case WM_MBUTTONDOWN:
+        dwFlags = MOUSEEVENTF_MIDDLEDOWN;
+        break;
+      case WM_MBUTTONUP:
+        dwFlags = MOUSEEVENTF_MIDDLEUP;
+        break;
+      case WM_MOUSEWHEEL:
+        dwFlags = MOUSEEVENTF_WHEEL;
+        break;
+      case WM_MOUSEHWHEEL:
+        dwFlags = MOUSEEVENTF_HWHEEL;
+        break;
     }
 
-    PMOUSEHOOKSTRUCTEX p = (PMOUSEHOOKSTRUCTEX)lParam;
+    // use MSLLHOOKSTRUCT instead of MOUSEHOOKSTRUCTEX (LL == LowLevel)
+    // http://stackoverflow.com/questions/19462161/get-wheel-delta-wparamwparam-in-mouse-hook-returning-0
+    // https://msdn.microsoft.com/en-us/library/windows/desktop/ms644970(v=vs.85).aspx
+    MSLLHOOKSTRUCT *p = (MSLLHOOKSTRUCT *)lParam;
     mouseRecord->dx = p->pt.x * (0xFFFF / GetSystemMetrics(SM_CXSCREEN));
     mouseRecord->dy = p->pt.y * (0xFFFF / GetSystemMetrics(SM_CYSCREEN));
-    /* mouseRecord->mouseData = p->mouseData; */
+    mouseRecord->mouseData = -HIWORD(~p->mouseData);
     mouseRecord->dwFlags = dwFlags | MOUSEEVENTF_ABSOLUTE;
     mouseRecord->dwExtraInfo = p->dwExtraInfo;
 
@@ -126,8 +154,7 @@ DWORD WINAPI ThreadedCode(LPVOID) {
   return 0;
 }
 
-int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR commandLine,
-                   int showMode) {
+int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR commandLine, int showMode) {
   const char singleInstanceMutexName[] = "EventRecorder";
   const char quitEventName[] = "winlogon";
 
