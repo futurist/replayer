@@ -16,6 +16,10 @@ typedef struct BUFFERSTRUCT {
   char *buf;
 } BUFFERSTRUCT;
 
+enum { kMaxArgs = 64 };
+int argc = 0;
+char *argv[kMaxArgs];
+
 // a index number to indicate msg source
 char outputBuffer[8192];  // sufficently large buffer
 int msg(int index) {
@@ -32,6 +36,17 @@ int readData(void *buf, size_t size, BUFFERSTRUCT *src) {
 }
 
 int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR commandLine, int showMode) {
+  // parse command line args
+  char *p2 = strtok(commandLine, " ");
+  while (p2 && argc < kMaxArgs - 1) {
+    argv[argc++] = p2;
+    p2 = strtok(0, " ");
+  }
+  argv[argc] = 0;
+
+  // usage: exe SAVE_FILE IGNORE_KEY
+  if (argc < 1) return msg(5);
+
   METASTRUCT *meta = (METASTRUCT *)calloc(sizeof(METASTRUCT), 1);
   KEYBDINPUT *keyRecord = (KEYBDINPUT *)calloc(sizeof(KEYBDINPUT), 1);
   MOUSEINPUT *mouseRecord = (MOUSEINPUT *)calloc(sizeof(MOUSEINPUT), 1);
@@ -47,7 +62,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
 
   // get file size
   LARGE_INTEGER nLargeInteger = {0};
-  HANDLE hFile = CreateFile("log.key", GENERIC_READ, FILE_SHARE_READ, NULL,
+  HANDLE hFile = CreateFile(argv[0], GENERIC_READ, FILE_SHARE_READ, NULL,
                             OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
   if (hFile != INVALID_HANDLE_VALUE) {
     BOOL bSuccess = GetFileSizeEx(hFile, &nLargeInteger);

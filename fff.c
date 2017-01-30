@@ -104,8 +104,6 @@ LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     }
 
     // use MSLLHOOKSTRUCT instead of MOUSEHOOKSTRUCTEX (LL == LowLevel)
-    // http://stackoverflow.com/questions/19462161/get-wheel-delta-wparamwparam-in-mouse-hook-returning-0
-    // https://msdn.microsoft.com/en-us/library/windows/desktop/ms644970(v=vs.85).aspx
     MSLLHOOKSTRUCT *p = (MSLLHOOKSTRUCT *)lParam;
     mouseRecord->dx = p->pt.x * (0xFFFF / GetSystemMetrics(SM_CXSCREEN));
     mouseRecord->dy = p->pt.y * (0xFFFF / GetSystemMetrics(SM_CYSCREEN));
@@ -193,7 +191,6 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
 
   if (!isAlreadyRunning) {
     // parse command line args
-    // http://stackoverflow.com/questions/1706551/parse-string-into-argv-argc
     char *p2 = strtok(commandLine, " ");
     while (p2 && argc < kMaxArgs - 1) {
       argv[argc++] = p2;
@@ -220,6 +217,8 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
             break;
           case '#':
             ignoreKey.win = 1;
+            break;
+          default:
             break;
         }
         // it's not valid ignoreKey
