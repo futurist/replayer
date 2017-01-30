@@ -1,3 +1,4 @@
+#include <shellapi.h>
 #include <stdio.h>
 #include <windows.h>
 
@@ -32,11 +33,26 @@ typedef struct METASTRUCT {
   DWORD startTime;
 } METASTRUCT;
 
+// define a key
+typedef struct KEYSTRUCT {
+  char ctrl;
+  char shift;
+  char alt;
+  char win;
+  unsigned int vkCode;
+} KEYSTRUCT;
+
+KEYSTRUCT ignoreKey = {0};
+
 DWORD prevTime = 0;
 DWORD prevData = 0;
 KEYBDINPUT *keyRecord = 0;
 MOUSEINPUT *mouseRecord = 0;
 METASTRUCT *meta = 0;
+
+enum { kMaxArgs = 64 };
+int argc = 0;
+char *argv[kMaxArgs];
 
 // a index number to indicate msg source
 char outputBuffer[8192];  // sufficently large buffer
@@ -105,17 +121,31 @@ LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
 }
 
 LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
-  if (nCode == HC_ACTION) {
+  PKBDLLHOOKSTRUCT p = (PKBDLLHOOKSTRUCT)lParam;
+  BOOL isIgnored = 0;
+  /* BOOL isDown = wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN; */
+  BOOL isUp = wParam == WM_KEYUP || wParam == WM_SYSKEYUP;
+  BOOL isCtrlDown = GetKeyState(VK_CONTROL) >> 15;
+  BOOL isShiftDown = GetKeyState(VK_SHIFT) >> 15;
+  BOOL isAltDown = GetKeyState(VK_MENU) >> 15;
+  BOOL isWinDown = GetKeyState(VK_LWIN) >> 15 || GetKeyState(VK_RWIN) >> 15;
+
+  // check if it's in ignore key
+  if (!isCtrlDown == !ignoreKey.ctrl &&
+      !isShiftDown == !ignoreKey.shift &&
+      !isAltDown == !ignoreKey.alt &&
+      !isWinDown == !ignoreKey.win &&
+      p->vkCode == ignoreKey.vkCode) {
+    isIgnored = 1;
+  }
+
+  if (!isIgnored && nCode == HC_ACTION) {
     /* GetKeyboardState((PBYTE)&keyState); */
-    PKBDLLHOOKSTRUCT p = (PKBDLLHOOKSTRUCT)lParam;
     keyRecord->wVk = p->vkCode;
     keyRecord->wScan = p->scanCode;
     keyRecord->dwFlags = p->flags;
     keyRecord->time = GetTickCount();  //p->time;
-    keyRecord->dwExtraInfo = 0;
-
-    /* BOOL isDown = wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN; */
-    BOOL isUp = wParam == WM_KEYUP || wParam == WM_SYSKEYUP;
+    keyRecord->dwExtraInfo = p->dwExtraInfo;
 
     // don't record same key again
     if (keyRecord->time == prevTime && keyRecord->wVk == prevData) {
@@ -162,6 +192,48 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
   int isAlreadyRunning = GetLastError() == ERROR_ALREADY_EXISTS;
 
   if (!isAlreadyRunning) {
+    // parse command line args
+    // http://stackoverflow.com/questions/1706551/parse-string-into-argv-argc
+    char *p2 = strtok(commandLine, " ");
+    while (p2 && argc < kMaxArgs - 1) {
+      argv[argc++] = p2;
+      p2 = strtok(0, " ");
+    }
+    argv[argc] = 0;
+
+    // usage: exe SAVE_FILE IGNORE_KEY
+    if (argc < 1) return msg(5);
+
+    // get ignoreKey
+    if (argc > 1) {
+      p2 = argv[1];
+      while (p2) {
+        switch ((char)*p2) {
+          case '!':
+            ignoreKey.alt = 1;
+            break;
+          case '+':
+            ignoreKey.shift = 1;
+            break;
+          case '^':
+            ignoreKey.ctrl = 1;
+            break;
+          case '#':
+            ignoreKey.win = 1;
+            break;
+        }
+        // it's not valid ignoreKey
+        if (sscanf(p2, "0x%x", &ignoreKey.vkCode)) {
+          p2 = NULL;
+          break;
+        } else {
+          p2++;
+        }
+      }
+      /* sprintf(outputBuffer, "d %i %i %i %i %x", ignoreKey.alt, ignoreKey.shift, ignoreKey.ctrl, ignoreKey.win, ignoreKey.vkCode); */
+      /* MessageBox(NULL, outputBuffer, "Debug Message", MB_OK); */
+    }
+
     meta = (METASTRUCT *)calloc(sizeof(METASTRUCT), 1);
     keyRecord = (KEYBDINPUT *)calloc(sizeof(KEYBDINPUT), 1);
     mouseRecord = (MOUSEINPUT *)calloc(sizeof(MOUSEINPUT), 1);
@@ -170,7 +242,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     meta->startTime = GetTickCount();
 
     // get file
-    logFile = CreateFile("log.key",              // name of the write
+    logFile = CreateFile(argv[0],                // name of the write
                          GENERIC_WRITE,          // open for writing
                          0,                      // do not share
                          NULL,                   // default security
