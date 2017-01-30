@@ -24,9 +24,15 @@ KEYBDINPUT *keyRecord;
 MOUSEINPUT *mouseRecord;
 METASTRUCT *meta;
 
+// a index number to indicate msg source
+char outputBuffer[8192];  // sufficently large buffer
+void msg(int index) {
+  sprintf(outputBuffer, "error %i %i", index, GetLastError());
+  MessageBox(NULL, outputBuffer, "Debug Message", MB_OK);
+}
+
 LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
   if (nCode == 0) {
-
     mouseRecord->time = GetTickCount();
     // don't record same key again
     if (mouseRecord->time == prevTime && wParam == prevData) {
@@ -36,25 +42,25 @@ LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     prevData = wParam;
 
     DWORD dwFlags = 0;
-    switch(wParam) {
-    case WM_MOUSEMOVE:
-      dwFlags = MOUSEEVENTF_MOVE;
-      break;
-    case WM_RBUTTONDOWN:
-      dwFlags = MOUSEEVENTF_RIGHTDOWN;
-      break;
-    case WM_RBUTTONUP:
-      dwFlags = MOUSEEVENTF_RIGHTUP;
-      break;
-    case WM_LBUTTONDOWN:
-      dwFlags = MOUSEEVENTF_LEFTDOWN;
-      break;
-    case WM_LBUTTONUP:
-      dwFlags = MOUSEEVENTF_LEFTUP;
-      break;
+    switch (wParam) {
+      case WM_MOUSEMOVE:
+        dwFlags = MOUSEEVENTF_MOVE;
+        break;
+      case WM_RBUTTONDOWN:
+        dwFlags = MOUSEEVENTF_RIGHTDOWN;
+        break;
+      case WM_RBUTTONUP:
+        dwFlags = MOUSEEVENTF_RIGHTUP;
+        break;
+      case WM_LBUTTONDOWN:
+        dwFlags = MOUSEEVENTF_LEFTDOWN;
+        break;
+      case WM_LBUTTONUP:
+        dwFlags = MOUSEEVENTF_LEFTUP;
+        break;
     }
 
-    PMOUSEHOOKSTRUCTEX p = (PMOUSEHOOKSTRUCTEX) lParam;
+    PMOUSEHOOKSTRUCTEX p = (PMOUSEHOOKSTRUCTEX)lParam;
     mouseRecord->dx = p->pt.x * (0xFFFF / GetSystemMetrics(SM_CXSCREEN));
     mouseRecord->dy = p->pt.y * (0xFFFF / GetSystemMetrics(SM_CYSCREEN));
     /* mouseRecord->mouseData = p->mouseData; */
@@ -62,8 +68,8 @@ LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     mouseRecord->dwExtraInfo = p->dwExtraInfo;
 
     DWORD mode = INPUT_MOUSE;
-    fwrite(&mode, sizeof(DWORD), 1, logFile);
-    fwrite(mouseRecord, sizeof(MOUSEINPUT), 1, logFile);
+    if (!fwrite(&mode, sizeof(DWORD), 1, logFile)) msg(100);
+    if (!fwrite(mouseRecord, sizeof(MOUSEINPUT), 1, logFile)) msg(101);
   }
   return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
@@ -75,7 +81,7 @@ LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     keyRecord->wVk = p->vkCode;
     keyRecord->wScan = p->scanCode;
     keyRecord->dwFlags = p->flags;
-    keyRecord->time = GetTickCount(); //p->time;
+    keyRecord->time = GetTickCount();  //p->time;
     keyRecord->dwExtraInfo = 0;
 
     /* BOOL isDown = wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN; */
@@ -98,7 +104,6 @@ LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     fwrite(&mode, sizeof(DWORD), 1, logFile);
     fwrite(keyRecord, sizeof(KEYBDINPUT), 1, logFile);
     /* fflush(logFile); */
-
   }
 
   return CallNextHookEx(NULL, nCode, wParam, lParam);
