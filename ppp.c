@@ -4,27 +4,38 @@
 
 char strBuffer[100];
 DWORD prevTime = 0;
-char *buf = 0;
 
 typedef struct METASTRUCT {
   int version;
   DWORD startTime;
 } METASTRUCT;
 
+typedef struct BUFFERSTRUCT {
+  size_t point;
+  size_t size;
+  char *buf;
+} BUFFERSTRUCT;
+
 // a index number to indicate msg source
 char outputBuffer[8192];  // sufficently large buffer
-void msg(int index) {
+int msg(int index) {
   sprintf(outputBuffer, "index %i lastError %i  errno %i", index, GetLastError(), errno);
   MessageBox(NULL, outputBuffer, "Debug Message", MB_OK);
+  return index;
 }
 
-int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR commandLine,
-                   int showMode) {
+int readData(void *buf, size_t size, BUFFERSTRUCT *src) {
+  if (src->point + size > src->size) return 0;
+  memcpy(buf, src->buf + src->point, size);
+  src->point += size;
+  return 1;
+}
+
+int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR commandLine, int showMode) {
   METASTRUCT *meta = (METASTRUCT *)calloc(sizeof(METASTRUCT), 1);
   KEYBDINPUT *keyRecord = (KEYBDINPUT *)calloc(sizeof(KEYBDINPUT), 1);
   MOUSEINPUT *mouseRecord = (MOUSEINPUT *)calloc(sizeof(MOUSEINPUT), 1);
 
-  FILE *logFile;
   FILE *logFile2;
   char logFilePath2[MAX_PATH] = {0};
   sprintf(logFilePath2, "log.txt");
@@ -40,38 +51,40 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
                             OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
   if (hFile != INVALID_HANDLE_VALUE) {
     BOOL bSuccess = GetFileSizeEx(hFile, &nLargeInteger);
+    if (!bSuccess) return msg(98);
   } else {
-    msg(99);
-    return 1;
+    return msg(99);
   }
 
   // read all content
-  long fsize = nLargeInteger.LowPart;
-  buf = malloc(fsize);
-  long point = 0;
-
+  size_t fsize = nLargeInteger.LowPart;
+  char *buf = malloc(fsize);
   DWORD nRead;
-  ReadFile(hFile, buf, fsize, &nRead, NULL);
+  if (!ReadFile(hFile, buf, fsize, &nRead, NULL)) {
+    return msg(98);
+  }
   CloseHandle(hFile);
 
-  /* msg(fread(buf, 1, fsize, logFile)); */
-  sprintf(outputBuffer, "%i %x %x %x %x", nRead, buf[fsize - 4], buf[fsize - 3], buf[fsize - 2], buf[fsize - 1]);
-  MessageBox(NULL, outputBuffer, "Debug Message", MB_OK);
+  BUFFERSTRUCT source = {0};
+  source.point = 0;
+  source.size = fsize;
+  source.buf = buf;
 
-  return 1;
+  /* sprintf(outputBuffer, "%i %x %x %p", fsize, source.point, source.size, source.buf); */
+  /* MessageBox(NULL, outputBuffer, "Debug Message", MB_OK); */
 
-  if (fread(meta, sizeof(METASTRUCT), 1, logFile) != 1) {
+  if (readData(meta, sizeof(METASTRUCT), &source) != 1) {
     msg(100);
     return 2;
   }
   prevTime = meta->startTime;
   /* fprintf(logFile2, "time: %d\n", meta->startTime); */
 
-  while (!feof(logFile)) {
-    if (!fread(&mode, sizeof(DWORD), 1, logFile)) msg(101);
+  while (source.point < fsize) {
+    if (!readData(&mode, sizeof(DWORD), &source)) msg(101);
     // it's mouse event
     if (mode == INPUT_MOUSE) {
-      if (!fread(mouseRecord, sizeof(MOUSEINPUT), 1, logFile)) msg(102);
+      if (!readData(mouseRecord, sizeof(MOUSEINPUT), &source)) msg(102);
       timeSpan = mouseRecord->time - prevTime;
       prevTime = mouseRecord->time;
       if (timeSpan > 0) sleep(timeSpan);
@@ -83,10 +96,12 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
       ip.mi.dwFlags = mouseRecord->dwFlags;
       ip.mi.dwExtraInfo = mouseRecord->dwExtraInfo;
       ip.mi.time = 0;
+      int ret = SendInput(1, &ip, sizeof(INPUT));
       // playback 3 times when failed
       int errCount = 3;
-      int ret = SendInput(1, &ip, sizeof(INPUT));
+      // sendInput fail, retry
       while (errCount-- && (ret == 0)) {
+        msg(555);
         sleep(1);
         ret = SendInput(1, &ip, sizeof(INPUT));
       }
@@ -94,7 +109,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     }
 
     // it's keybd event
-    if (mode == INPUT_KEYBOARD && fread(keyRecord, sizeof(KEYBDINPUT), 1, logFile) == 1) {
+    if (mode == INPUT_KEYBOARD && readData(keyRecord, sizeof(KEYBDINPUT), &source) == 1) {
       timeSpan = keyRecord->time - prevTime;
       prevTime = keyRecord->time;
       if (timeSpan > 0) sleep(timeSpan);
@@ -124,7 +139,6 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
   free(meta);
   free(keyRecord);
   free(mouseRecord);
-  fclose(logFile);
   fclose(logFile2);
 
   return 0;

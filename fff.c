@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <windows.h>
 
-FILE *logFile;
+HANDLE logFile;
+DWORD nWritten = 0;
 char bufferForKeys[100];
 
 BYTE keyState[256];
@@ -20,15 +21,16 @@ typedef struct METASTRUCT {
 
 DWORD prevTime = 0;
 DWORD prevData = 0;
-KEYBDINPUT *keyRecord;
-MOUSEINPUT *mouseRecord;
-METASTRUCT *meta;
+KEYBDINPUT *keyRecord = 0;
+MOUSEINPUT *mouseRecord = 0;
+METASTRUCT *meta = 0;
 
 // a index number to indicate msg source
 char outputBuffer[8192];  // sufficently large buffer
-void msg(int index) {
+int msg(int index) {
   sprintf(outputBuffer, "error %i %i", index, GetLastError());
   MessageBox(NULL, outputBuffer, "Debug Message", MB_OK);
+  return index;
 }
 
 LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
@@ -68,8 +70,8 @@ LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     mouseRecord->dwExtraInfo = p->dwExtraInfo;
 
     DWORD mode = INPUT_MOUSE;
-    if (!fwrite(&mode, sizeof(DWORD), 1, logFile)) msg(100);
-    if (!fwrite(mouseRecord, sizeof(MOUSEINPUT), 1, logFile)) msg(101);
+    if (!WriteFile(logFile, &mode, sizeof(DWORD), &nWritten, NULL)) msg(200);
+    if (!WriteFile(logFile, mouseRecord, sizeof(MOUSEINPUT), &nWritten, NULL)) msg(201);
   }
   return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
@@ -89,7 +91,7 @@ LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
 
     // don't record same key again
     if (keyRecord->time == prevTime && keyRecord->wVk == prevData) {
-      return CallNextHookEx(NULL, nCode, wParam, lParam);
+      /* return CallNextHookEx(NULL, nCode, wParam, lParam); */
     }
     prevTime = keyRecord->time;
     prevData = keyRecord->wVk;
@@ -99,27 +101,25 @@ LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
 
     keyRecord->dwFlags = EXTENDED | UP;
 
-    // fprintf(logFile, "%02x", isDown);
     DWORD mode = INPUT_KEYBOARD;
-    fwrite(&mode, sizeof(DWORD), 1, logFile);
-    fwrite(keyRecord, sizeof(KEYBDINPUT), 1, logFile);
-    /* fflush(logFile); */
+    if (!WriteFile(logFile, &mode, sizeof(DWORD), &nWritten, NULL)) msg(300);
+    if (!WriteFile(logFile, keyRecord, sizeof(KEYBDINPUT), &nWritten, NULL)) msg(301);
   }
 
   return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 
 DWORD WINAPI ThreadedCode(LPVOID) {
-  free(meta);
-  free(keyRecord);
-  free(mouseRecord);
+  if (meta) free(meta);
+  if (keyRecord) free(keyRecord);
+  if (mouseRecord) free(mouseRecord);
   WaitForSingleObject(quitEventHandle, INFINITE);
 
   CloseHandle(singleInstanceMutexHandle);
   CloseHandle(quitEventHandle);
-  /* UnhookWindowsHookEx(keyboardHookHandle); */
+  UnhookWindowsHookEx(keyboardHookHandle);
   UnhookWindowsHookEx(mouseHookHandle);
-  fclose(logFile);
+  CloseHandle(logFile);
 
   ExitProcess(0);
 
@@ -135,9 +135,6 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
   int isAlreadyRunning = GetLastError() == ERROR_ALREADY_EXISTS;
 
   if (!isAlreadyRunning) {
-    char logFilePath[MAX_PATH] = {0};
-    sprintf(logFilePath, "log.key");
-
     meta = (METASTRUCT *)calloc(sizeof(METASTRUCT), 1);
     keyRecord = (KEYBDINPUT *)calloc(sizeof(KEYBDINPUT), 1);
     mouseRecord = (MOUSEINPUT *)calloc(sizeof(MOUSEINPUT), 1);
@@ -145,11 +142,21 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     meta->version = 1;
     meta->startTime = GetTickCount();
 
-    // write file header
-    logFile = fopen(logFilePath, "w");
-    fwrite(meta, sizeof(METASTRUCT), 1, logFile);
+    // get file
+    logFile = CreateFile("log.key",              // name of the write
+                         GENERIC_WRITE,          // open for writing
+                         0,                      // do not share
+                         NULL,                   // default security
+                         CREATE_ALWAYS,          // create new file only
+                         FILE_ATTRIBUTE_NORMAL,  // normal file
+                         NULL);                  // no attr. template
+    if (logFile == INVALID_HANDLE_VALUE) {
+      return msg(98);
+    }
 
-    /* keyboardHookHandle = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardHookDelegate, currentInstance, 0); */
+    if (!WriteFile(logFile, meta, sizeof(METASTRUCT), &nWritten, NULL)) msg(100);
+
+    keyboardHookHandle = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardHookDelegate, currentInstance, 0);
     mouseHookHandle = SetWindowsHookEx(WH_MOUSE_LL, MouseHookDelegate, currentInstance, 0);
     {
       quitEventHandle = CreateEvent(NULL, FALSE, FALSE, quitEventName);
