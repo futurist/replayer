@@ -24,6 +24,12 @@ HANDLE singleInstanceMutexHandle;
 HANDLE quitEventHandle;
 int running = TRUE;
 
+METASTRUCT *meta = NULL;
+KEYBDINPUT *keyRecord = NULL;
+MOUSEINPUT *mouseRecord = NULL;
+char *buf = NULL;
+FILE *logFile2;
+
 // a index number to indicate msg source
 char outputBuffer[8192];  // sufficently large buffer
 int msg(int index) {
@@ -47,9 +53,17 @@ DWORD WINAPI ThreadedCode(LPVOID) {
 
   running = FALSE;
 
-  ExitProcess(0);
+  /* ExitProcess(0); */
 
   return 0;
+}
+
+void cleanUp(void) {
+  if (buf) free(buf);
+  if (meta) free(meta);
+  if (keyRecord) free(keyRecord);
+  if (mouseRecord) free(mouseRecord);
+  if (logFile2) fclose(logFile2);
 }
 
 int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR commandLine, int showMode) {
@@ -78,11 +92,10 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     // usage: exe SAVE_FILE IGNORE_KEY
     if (argc < 1) return msg(5);
 
-    METASTRUCT *meta = (METASTRUCT *)calloc(sizeof(METASTRUCT), 1);
-    KEYBDINPUT *keyRecord = (KEYBDINPUT *)calloc(sizeof(KEYBDINPUT), 1);
-    MOUSEINPUT *mouseRecord = (MOUSEINPUT *)calloc(sizeof(MOUSEINPUT), 1);
+    meta = (METASTRUCT *)calloc(sizeof(METASTRUCT), 1);
+    keyRecord = (KEYBDINPUT *)calloc(sizeof(KEYBDINPUT), 1);
+    mouseRecord = (MOUSEINPUT *)calloc(sizeof(MOUSEINPUT), 1);
 
-    FILE *logFile2;
     char logFilePath2[MAX_PATH] = {0};
     sprintf(logFilePath2, "log.txt");
     logFile2 = fopen(logFilePath2, "w");
@@ -104,7 +117,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
 
     // read all content
     size_t fsize = nLargeInteger.LowPart;
-    char *buf = malloc(fsize);
+    buf = malloc(fsize);
     DWORD nRead;
     if (!ReadFile(hFile, buf, fsize, &nRead, NULL)) {
       CloseHandle(hFile);
@@ -182,11 +195,8 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
       }
     }
 
-    if (buf) free(buf);
-    free(meta);
-    free(keyRecord);
-    free(mouseRecord);
-    fclose(logFile2);
+    cleanUp();
+
   } else {
     quitEventHandle = OpenEvent(EVENT_ALL_ACCESS, FALSE, quitEventName);
     SetEvent(quitEventHandle);
