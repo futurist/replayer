@@ -55,7 +55,7 @@ DWORD WINAPI ThreadedCode(LPVOID) {
 
   /* ExitProcess(0); */
 
-  return 0;
+  return !running;
 }
 
 void cleanUp(void) {
@@ -138,7 +138,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
       return 2;
     }
     prevTime = meta->startTime;
-    fprintf(logFile2, "time: %d %x\n", meta->startTime, running);
+    /* fprintf(logFile2, "time: %d %x\n", meta->startTime, running); */
 
     while (running && source.point < fsize) {
       if (!readData(&mode, sizeof(DWORD), &source)) msg(101);
@@ -148,7 +148,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
         timeSpan = mouseRecord->time - prevTime;
         prevTime = mouseRecord->time;
         if (timeSpan > 0) sleep(timeSpan);
-        fprintf(logFile2, "%X %X %X %X\n", mouseRecord->time, mouseRecord->dx, mouseRecord->dy, mouseRecord->dwFlags);
+        /* fprintf(logFile2, "%X %X %X %X\n", mouseRecord->time, mouseRecord->dx, mouseRecord->dy, mouseRecord->dwFlags); */
         ip.type = INPUT_MOUSE;
         ip.mi.dx = mouseRecord->dx;
         ip.mi.dy = mouseRecord->dy;
@@ -198,9 +198,12 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     cleanUp();
 
   } else {
+    running = FALSE;
     quitEventHandle = OpenEvent(EVENT_ALL_ACCESS, FALSE, quitEventName);
     SetEvent(quitEventHandle);
   }
 
-  return 0;
+  /* printf("exit code %i", !running); */
+  ExitProcess(!running);
+  return !running;
 }
