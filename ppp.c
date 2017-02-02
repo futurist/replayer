@@ -29,6 +29,11 @@ KEYBDINPUT *keyRecord = NULL;
 MOUSEINPUT *mouseRecord = NULL;
 char *buf = NULL;
 FILE *logFile2;
+BYTE keyState[256];
+
+int timeSpan = 0;
+INPUT ip = {0};
+DWORD mode = 0;
 
 // a index number to indicate msg source
 char outputBuffer[8192];  // sufficently large buffer
@@ -58,7 +63,28 @@ DWORD WINAPI ThreadedCode(LPVOID) {
   return !running;
 }
 
+void resetAllKeys(void) {
+  GetKeyboardState((PBYTE)&keyState);
+  // i<8 is mouse
+  for (UINT i = 8; i < 256; i++) {
+    if (GetAsyncKeyState(i) >> 15) {
+      // key is down
+      ip.type = INPUT_KEYBOARD;
+      ip.ki.wVk = i;
+      ip.ki.wScan = MapVirtualKeyEx(i, 4, NULL);  // MAPVK_VK_TO_VSC_EX=4
+      ip.ki.dwFlags = KEYEVENTF_KEYUP;
+      ip.ki.time = 0;
+      ip.ki.dwExtraInfo = 0;
+      SendInput(1, &ip, sizeof(INPUT));
+      // also up extended_key
+      ip.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
+      SendInput(1, &ip, sizeof(INPUT));
+    }
+  }
+}
+
 void cleanUp(void) {
+  resetAllKeys();
   if (buf) free(buf);
   if (meta) free(meta);
   if (keyRecord) free(keyRecord);
@@ -99,10 +125,6 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     char logFilePath2[MAX_PATH] = {0};
     sprintf(logFilePath2, "log.txt");
     logFile2 = fopen(logFilePath2, "w");
-
-    int timeSpan = 0;
-    INPUT ip = {0};
-    DWORD mode = 0;
 
     // get file size
     LARGE_INTEGER nLargeInteger = {0};

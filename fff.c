@@ -20,8 +20,6 @@ HANDLE logFile;
 DWORD nWritten = 0;
 char bufferForPath[MAX_PATH];
 
-BYTE keyState[256];
-
 HANDLE singleInstanceMutexHandle;
 HHOOK keyboardHookHandle;
 HHOOK mouseHookHandle;
@@ -118,21 +116,6 @@ LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     if (!WriteFile(logFile, mouseRecord, sizeof(MOUSEINPUT), &nWritten, NULL)) msg(201);
   }
   return CallNextHookEx(NULL, nCode, wParam, lParam);
-}
-
-void resetAllKeys(void) {
-  GetKeyboardState((PBYTE)&keyState);
-  // i<8 is mouse
-  for (UINT i = 8; i < 256; i++) {
-    if (GetAsyncKeyState(i) >> 15) {
-      // key is down
-      keyRecord->wVk = i;
-      keyRecord->wScan = MapVirtualKeyEx(i, 4, NULL);  // MAPVK_VK_TO_VSC_EX=4
-      keyRecord->dwFlags = 0;
-      keyRecord->time = GetTickCount();
-      keyRecord->dwExtraInfo = 0;
-    }
-  }
 }
 
 LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
