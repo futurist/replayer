@@ -124,13 +124,13 @@ void resetAllKeys(void) {
   GetKeyboardState((PBYTE)&keyState);
   // i<8 is mouse
   for (UINT i = 8; i < 256; i++) {
-    if (keyState[i] >> 15) {
-      /* // key is down */
-      /* keyRecord->wVk = i; */
-      /* keyRecord->wScan = MapVirtualKey(i, MAPVK_VK_TO_VSC); */
-      /* keyRecord->dwFlags = p->flags; */
-      /* keyRecord->time = GetTickCount();  //p->time; */
-      /* keyRecord->dwExtraInfo = p->dwExtraInfo; */
+    if (GetAsyncKeyState(i) >> 15) {
+      // key is down
+      keyRecord->wVk = i;
+      keyRecord->wScan = MapVirtualKeyEx(i, 4, NULL);  // MAPVK_VK_TO_VSC_EX=4
+      keyRecord->dwFlags = 0;
+      keyRecord->time = GetTickCount();
+      keyRecord->dwExtraInfo = 0;
     }
   }
 }
