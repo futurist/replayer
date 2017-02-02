@@ -43,8 +43,8 @@ typedef struct KEYSTRUCT {
 
 KEYSTRUCT ignoreKey = {0};
 
-DWORD prevTime = 0;
-DWORD prevData = 0;
+DWORD prevData1 = 0;
+DWORD prevData2 = 0;
 KEYBDINPUT *keyRecord = 0;
 MOUSEINPUT *mouseRecord = 0;
 METASTRUCT *meta = 0;
@@ -64,16 +64,12 @@ int msg(int index) {
 LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
   if (nCode == 0) {
     mouseRecord->time = GetTickCount();
-    // don't record same key again
-    if (mouseRecord->time == prevTime && wParam == prevData) {
-      /* return CallNextHookEx(NULL, nCode, wParam, lParam); */
-    }
-    prevTime = mouseRecord->time;
-    prevData = wParam;
 
     DWORD dwFlags = 0;
+    BOOL isMouseMove = FALSE;
     switch (wParam) {
       case WM_MOUSEMOVE:
+        isMouseMove = TRUE;
         dwFlags = MOUSEEVENTF_MOVE;
         break;
       case WM_RBUTTONDOWN:
@@ -110,11 +106,33 @@ LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     mouseRecord->dwFlags = dwFlags | MOUSEEVENTF_ABSOLUTE;
     mouseRecord->dwExtraInfo = p->dwExtraInfo;
 
+    // don't record MOUSE_MOVE if it's not moved
+    if (isMouseMove && prevData1 == mouseRecord->dx && prevData2 == mouseRecord->dy) {
+      return CallNextHookEx(NULL, nCode, wParam, lParam);
+    }
+    prevData1 = mouseRecord->dx;
+    prevData2 = mouseRecord->dy;
+
     DWORD mode = INPUT_MOUSE;
     if (!WriteFile(logFile, &mode, sizeof(DWORD), &nWritten, NULL)) msg(200);
     if (!WriteFile(logFile, mouseRecord, sizeof(MOUSEINPUT), &nWritten, NULL)) msg(201);
   }
   return CallNextHookEx(NULL, nCode, wParam, lParam);
+}
+
+void resetAllKeys(void) {
+  GetKeyboardState((PBYTE)&keyState);
+  // i<8 is mouse
+  for (UINT i = 8; i < 256; i++) {
+    if (keyState[i] >> 15) {
+      /* // key is down */
+      /* keyRecord->wVk = i; */
+      /* keyRecord->wScan = MapVirtualKey(i, MAPVK_VK_TO_VSC); */
+      /* keyRecord->dwFlags = p->flags; */
+      /* keyRecord->time = GetTickCount();  //p->time; */
+      /* keyRecord->dwExtraInfo = p->dwExtraInfo; */
+    }
+  }
 }
 
 LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
@@ -137,7 +155,6 @@ LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
   }
 
   if (!isIgnored && nCode == HC_ACTION) {
-    /* GetKeyboardState((PBYTE)&keyState); */
     keyRecord->wVk = p->vkCode;
     keyRecord->wScan = p->scanCode;
     keyRecord->dwFlags = p->flags;
@@ -145,11 +162,11 @@ LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     keyRecord->dwExtraInfo = p->dwExtraInfo;
 
     // don't record same key again
-    if (keyRecord->time == prevTime && keyRecord->wVk == prevData) {
-      /* return CallNextHookEx(NULL, nCode, wParam, lParam); */
+    if (keyRecord->time == prevData1 && keyRecord->wVk == prevData2) {
+      return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
-    prevTime = keyRecord->time;
-    prevData = keyRecord->wVk;
+    prevData1 = keyRecord->time;
+    prevData2 = keyRecord->wVk;
 
     DWORD EXTENDED = keyRecord->dwFlags & LLKHF_EXTENDED ? KEYEVENTF_EXTENDEDKEY : 0;
     DWORD UP = isUp ? KEYEVENTF_KEYUP : 0;
