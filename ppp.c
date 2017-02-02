@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <windows.h>
 
+/* #define DEBUG */
+
 char strBuffer[100];
 DWORD prevTime = 0;
 
@@ -28,8 +30,8 @@ METASTRUCT *meta = NULL;
 KEYBDINPUT *keyRecord = NULL;
 MOUSEINPUT *mouseRecord = NULL;
 char *buf = NULL;
-FILE *logFile2;
 BYTE keyState[256];
+FILE *logFile2;
 
 int timeSpan = 0;
 INPUT ip = {0};
@@ -122,9 +124,11 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     keyRecord = (KEYBDINPUT *)calloc(sizeof(KEYBDINPUT), 1);
     mouseRecord = (MOUSEINPUT *)calloc(sizeof(MOUSEINPUT), 1);
 
+#ifdef DEBUG
     char logFilePath2[MAX_PATH] = {0};
     sprintf(logFilePath2, "log.txt");
     logFile2 = fopen(logFilePath2, "w");
+#endif
 
     // get file size
     LARGE_INTEGER nLargeInteger = {0};
@@ -160,7 +164,10 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
       return 2;
     }
     prevTime = meta->startTime;
-    /* fprintf(logFile2, "time: %d %x\n", meta->startTime, running); */
+
+#ifdef DEBUG
+    fprintf(logFile2, "time: %d %x\n", meta->startTime, running);
+#endif
 
     while (running && source.point < fsize) {
       if (!readData(&mode, sizeof(DWORD), &source)) msg(101);
@@ -170,7 +177,11 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
         timeSpan = mouseRecord->time - prevTime;
         prevTime = mouseRecord->time;
         if (timeSpan > 0) sleep(timeSpan);
-        /* fprintf(logFile2, "%X %X %X %X\n", mouseRecord->time, mouseRecord->dx, mouseRecord->dy, mouseRecord->dwFlags); */
+
+#ifdef DEBUG
+        fprintf(logFile2, "%X %X %X %X\n", mouseRecord->time, mouseRecord->dx, mouseRecord->dy, mouseRecord->dwFlags);
+#endif
+
         ip.type = INPUT_MOUSE;
         ip.mi.dx = mouseRecord->dx;
         ip.mi.dy = mouseRecord->dy;
