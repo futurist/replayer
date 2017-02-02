@@ -3,7 +3,7 @@
 :preCleanup()
     cls
     set fileName=fff
-    rem set libs=user32.lib kernel32.lib
+    rem set libs=user32.lib kernel32.lib shell32.lib
     del %fileName%.exe 2>nul
     del %fileName%.obj 2>nul
 

