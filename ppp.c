@@ -4,6 +4,9 @@
 
 /* #define DEBUG */
 
+const char singleInstanceMutexName[] = "EventRecorder";
+const char quitEventName[] = "winlogon";
+
 char strBuffer[100];
 DWORD prevTime = 0;
 
@@ -77,6 +80,8 @@ void resetAllKeys(void) {
 }
 
 void cleanUp(void) {
+  SetEvent(OpenEvent(EVENT_ALL_ACCESS, FALSE, quitEventName));
+
   resetAllKeys();
   if (buf) free(buf);
   if (meta) free(meta);
@@ -86,9 +91,6 @@ void cleanUp(void) {
 }
 
 int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR commandLine, int showMode) {
-  const char singleInstanceMutexName[] = "EventRecorder";
-  const char quitEventName[] = "winlogon";
-
   singleInstanceMutexHandle = CreateMutex(NULL, TRUE, singleInstanceMutexName);
   int isAlreadyRunning = GetLastError() == ERROR_ALREADY_EXISTS;
 
@@ -226,8 +228,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
 
   } else {
     running = FALSE;
-    quitEventHandle = OpenEvent(EVENT_ALL_ACCESS, FALSE, quitEventName);
-    SetEvent(quitEventHandle);
+    SetEvent(OpenEvent(EVENT_ALL_ACCESS, FALSE, quitEventName));
   }
 
   /* printf("exit code %i", !running); */
