@@ -46,6 +46,8 @@ DWORD prevData2 = 0;
 KEYBDINPUT *keyRecord = 0;
 MOUSEINPUT *mouseRecord = 0;
 METASTRUCT *meta = 0;
+long keyCount = 0;
+long mouseCount = 0;
 
 enum { kMaxArgs = 64 };
 int argc = 0;
@@ -114,6 +116,7 @@ LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     DWORD mode = INPUT_MOUSE;
     if (!WriteFile(logFile, &mode, sizeof(DWORD), &nWritten, NULL)) msg(200);
     if (!WriteFile(logFile, mouseRecord, sizeof(MOUSEINPUT), &nWritten, NULL)) msg(201);
+    mouseCount++;
   }
   return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
@@ -127,7 +130,10 @@ LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
   BOOL isShiftDown = GetKeyState(VK_SHIFT) >> 15;
   BOOL isAltDown = GetKeyState(VK_MENU) >> 15;
   BOOL isWinDown = GetKeyState(VK_LWIN) >> 15 || GetKeyState(VK_RWIN) >> 15;
-
+  // don't record keyUp event at first, to keep key consistency
+  if (keyCount == 0 && isUp) {
+    isIgnored = 1;
+  }
   // check if it's in ignore key
   if (!isCtrlDown == !ignoreKey.ctrl &&
       !isShiftDown == !ignoreKey.shift &&
@@ -159,6 +165,7 @@ LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     DWORD mode = INPUT_KEYBOARD;
     if (!WriteFile(logFile, &mode, sizeof(DWORD), &nWritten, NULL)) msg(300);
     if (!WriteFile(logFile, keyRecord, sizeof(KEYBDINPUT), &nWritten, NULL)) msg(301);
+    keyCount++;
   }
 
   return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -245,7 +252,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     PathRemoveFileSpec(bufferForPath);
     int retval = SHCreateDirectoryEx(NULL, (LPCTSTR)bufferForPath, NULL);
     // ERROR_SUCCESS = 0
-    if (retval != ERROR_SUCCESS) {
+    if (retval != ERROR_SUCCESS && retval != 183) {  // 183 = ERROR_ALREADY_EXISTS
       return msg(retval);
     }
 

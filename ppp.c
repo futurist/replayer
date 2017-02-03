@@ -30,8 +30,8 @@ METASTRUCT *meta = NULL;
 KEYBDINPUT *keyRecord = NULL;
 MOUSEINPUT *mouseRecord = NULL;
 char *buf = NULL;
-BYTE keyState[256];
-FILE *logFile2;
+FILE *logFile2 = NULL;
+static INPUT inputStates[256];
 
 int timeSpan = 0;
 INPUT ip = {0};
@@ -66,21 +66,12 @@ DWORD WINAPI ThreadedCode(LPVOID) {
 }
 
 void resetAllKeys(void) {
-  GetKeyboardState((PBYTE)&keyState);
   // i<8 is mouse
   for (UINT i = 8; i < 256; i++) {
-    if (GetAsyncKeyState(i) >> 15) {
+    if (inputStates[i].ki.wVk && !(inputStates[i].ki.dwFlags & KEYEVENTF_KEYUP)) {
       // key is down
-      ip.type = INPUT_KEYBOARD;
-      ip.ki.wVk = i;
-      ip.ki.wScan = MapVirtualKeyEx(i, 4, NULL);  // MAPVK_VK_TO_VSC_EX=4
-      ip.ki.dwFlags = KEYEVENTF_KEYUP;
-      ip.ki.time = 0;
-      ip.ki.dwExtraInfo = 0;
-      SendInput(1, &ip, sizeof(INPUT));
-      // also up extended_key
-      ip.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
-      SendInput(1, &ip, sizeof(INPUT));
+      inputStates[i].ki.dwFlags |= KEYEVENTF_KEYUP;
+      SendInput(1, &inputStates[i], sizeof(INPUT));
     }
   }
 }
@@ -117,7 +108,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     }
     argv[argc] = 0;
 
-    // usage: exe SAVE_FILE IGNORE_KEY
+    // usage: exe LOG_FILE
     if (argc < 1) return msg(5);
 
     meta = (METASTRUCT *)calloc(sizeof(METASTRUCT), 1);
@@ -223,6 +214,9 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
         ip.ki.dwFlags = keyRecord->dwFlags;  // 0 for key press
         SendInput(1, &ip, sizeof(INPUT));
 
+        // cache current key into inputStates
+        memcpy(&inputStates[keyRecord->wVk], &ip, sizeof(INPUT));
+
         /* keybd_event(keyRecord->vkCode, keyRecord->scanCode, isExtended | isUp, */
         /*             keyRecord->dwExtraInfo); */
       }
@@ -237,6 +231,6 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
   }
 
   /* printf("exit code %i", !running); */
-  ExitProcess(!running);
+  /* ExitProcess(!running); */
   return !running;
 }
