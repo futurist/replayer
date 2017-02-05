@@ -49,94 +49,12 @@ METASTRUCT *meta = 0;
 long keyCount = 0;
 long mouseCount = 0;
 
-int argc = 0;
-char **argv;
-
 // a index number to indicate msg source
 char outputBuffer[8192];  // sufficently large buffer
 int msg(int index) {
   sprintf(outputBuffer, "error %i %i", index, GetLastError());
   MessageBox(NULL, outputBuffer, "Debug Message", MB_OK);
   return index;
-}
-
-PCHAR *CommandLineToArgvA(PCHAR CmdLine, int *_argc) {
-  PCHAR *argv;
-  PCHAR _argv;
-  ULONG len;
-  ULONG argc;
-  CHAR a;
-  ULONG i, j;
-
-  BOOLEAN in_QM;
-  BOOLEAN in_TEXT;
-  BOOLEAN in_SPACE;
-
-  len = strlen(CmdLine);
-  i = ((len + 2) / 2) * sizeof(PVOID) + sizeof(PVOID);
-
-  argv = (PCHAR *)LocalAlloc(LMEM_FIXED, i + (len + 2) * sizeof(CHAR));
-
-  _argv = (PCHAR)(((PUCHAR)argv) + i);
-
-  argc = 0;
-  argv[argc] = _argv;
-  in_QM = FALSE;
-  in_TEXT = FALSE;
-  in_SPACE = TRUE;
-  i = 0;
-  j = 0;
-
-  while (CmdLine[i]) {
-    a = CmdLine[i];
-    if (in_QM) {
-      if (a == '\"') {
-        in_QM = FALSE;
-      } else {
-        _argv[j] = a;
-        j++;
-      }
-    } else {
-      switch (a) {
-        case '\"':
-          in_QM = TRUE;
-          in_TEXT = TRUE;
-          if (in_SPACE) {
-            argv[argc] = _argv + j;
-            argc++;
-          }
-          in_SPACE = FALSE;
-          break;
-        case ' ':
-        case '\t':
-        case '\n':
-        case '\r':
-          if (in_TEXT) {
-            _argv[j] = '\0';
-            j++;
-          }
-          in_TEXT = FALSE;
-          in_SPACE = TRUE;
-          break;
-        default:
-          in_TEXT = TRUE;
-          if (in_SPACE) {
-            argv[argc] = _argv + j;
-            argc++;
-          }
-          _argv[j] = a;
-          j++;
-          in_SPACE = FALSE;
-          break;
-      }
-    }
-    i++;
-  }
-  _argv[j] = '\0';
-  argv[argc] = NULL;
-
-  (*_argc) = argc;
-  return argv;
 }
 
 LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
@@ -266,7 +184,13 @@ DWORD WINAPI ThreadedCode(LPVOID) {
   return 0;
 }
 
-int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR commandLine, int showMode) {
+// using main to get argc, argv
+int main(int argc, char *argv[]) {
+  // don't use WinMain since it's lack of argv
+  /* int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR commandLine, int showMode) { */
+
+  // using below to get currentInstance
+  HINSTANCE currentInstance = GetModuleHandle(NULL);
   const char singleInstanceMutexName[] = "EventRecorder";
   const char quitEventName[] = "winlogon";
 
@@ -274,16 +198,12 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
   int isAlreadyRunning = GetLastError() == ERROR_ALREADY_EXISTS;
 
   if (!isAlreadyRunning) {
-    // parse command line args
-
-    argv = CommandLineToArgvA(commandLine, &argc);
-
     // usage: exe SAVE_FILE IGNORE_KEY
-    if (argc < 1) return msg(5);
+    if (argc < 2) return msg(5);
 
     // get ignoreKey
-    if (argc > 1) {
-      char *p2 = argv[1];
+    if (argc > 2) {
+      char *p2 = argv[2];
       while (p2) {
         switch ((char)*p2) {
           case '!':
@@ -322,7 +242,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
 
     // create directory if not exists
     char **lppFile = {NULL};
-    GetFullPathName(argv[0], MAX_PATH, bufferForPath, lppFile);
+    GetFullPathName(argv[1], MAX_PATH, bufferForPath, lppFile);
     PathRemoveFileSpec(bufferForPath);
     int retval = SHCreateDirectoryEx(NULL, (LPCTSTR)bufferForPath, NULL);
     // ERROR_SUCCESS = 0
@@ -331,7 +251,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
     }
 
     // get file
-    logFile = CreateFile(argv[0],                // name of the write
+    logFile = CreateFile(argv[1],                // name of the write
                          GENERIC_WRITE,          // open for writing
                          0,                      // do not share
                          NULL,                   // default security

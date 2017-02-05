@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <stdio.h>
 #include <windows.h>
 
@@ -21,10 +20,6 @@ typedef struct BUFFERSTRUCT {
   char *buf;
 } BUFFERSTRUCT;
 
-enum { kMaxArgs = 64 };
-int argc = 0;
-char *argv[kMaxArgs];
-
 HANDLE singleInstanceMutexHandle;
 HANDLE quitEventHandle;
 int running = TRUE;
@@ -43,7 +38,7 @@ DWORD mode = 0;
 // a index number to indicate msg source
 char outputBuffer[8192];  // sufficently large buffer
 int msg(int index) {
-  sprintf(outputBuffer, "index %i lastError %i  errno %i", index, GetLastError(), errno);
+  sprintf(outputBuffer, "index %i lastError %i", index, GetLastError());
   MessageBox(NULL, outputBuffer, "Debug Message", MB_OK);
   return index;
 }
@@ -90,7 +85,14 @@ void cleanUp(void) {
   if (logFile2) fclose(logFile2);
 }
 
-int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR commandLine, int showMode) {
+// using main to get argc, argv
+int main(int argc, char *argv[]) {
+  // don't use WinMain since it's lack of argv
+  /* int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR commandLine, int showMode) { */
+
+  // using below to get currentInstance
+  /* HINSTANCE currentInstance = GetModuleHandle(NULL); */
+
   singleInstanceMutexHandle = CreateMutex(NULL, TRUE, singleInstanceMutexName);
   int isAlreadyRunning = GetLastError() == ERROR_ALREADY_EXISTS;
 
@@ -102,16 +104,8 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
       CreateThread(NULL, 0, ThreadedCode, 0, 0, &threadId);
     }
 
-    // parse command line args
-    char *p2 = strtok(commandLine, " ");
-    while (p2 && argc < kMaxArgs - 1) {
-      argv[argc++] = p2;
-      p2 = strtok(0, " ");
-    }
-    argv[argc] = 0;
-
     // usage: exe LOG_FILE
-    if (argc < 1) return msg(5);
+    if (argc < 2) return msg(5);
 
     meta = (METASTRUCT *)calloc(sizeof(METASTRUCT), 1);
     keyRecord = (KEYBDINPUT *)calloc(sizeof(KEYBDINPUT), 1);
@@ -125,7 +119,7 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
 
     // get file size
     LARGE_INTEGER nLargeInteger = {0};
-    HANDLE hFile = CreateFile(argv[0], GENERIC_READ, FILE_SHARE_READ, NULL,
+    HANDLE hFile = CreateFile(argv[1], GENERIC_READ, FILE_SHARE_READ, NULL,
                               OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
     if (hFile != INVALID_HANDLE_VALUE) {
       BOOL bSuccess = GetFileSizeEx(hFile, &nLargeInteger);
