@@ -200,8 +200,9 @@ int main(int argc, char *argv[]) {
   if (!isAlreadyRunning) {
     // usage: exe LOG_FILE
     if (argc < 2) {
-      sprintf(outputBuffer, "Usage: %s <log_file_path> [ignore_key]", argv[0]);
-      MessageBox(NULL, outputBuffer, "Usage", MB_OK);
+      char *appName = "Key & Mouse action recorder";
+      sprintf(outputBuffer, "%s\n\nUsage: %s <log_file_path> [ignore_key]", appName, argv[0]);
+      MessageBox(NULL, outputBuffer, appName, MB_OK);
       return 0;
     }
 

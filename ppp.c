@@ -106,8 +106,9 @@ int main(int argc, char *argv[]) {
 
     // usage: exe LOG_FILE
     if (argc < 2) {
-      sprintf(outputBuffer, "Usage: %s <log_file_path>", argv[0]);
-      MessageBox(NULL, outputBuffer, "Usage", MB_OK);
+      char *appName = "Key & Mouse action player";
+      sprintf(outputBuffer, "%s\n\nUsage: %s <log_file_path>", appName, argv[0]);
+      MessageBox(NULL, outputBuffer, appName, MB_OK);
       return 0;
     }
 
