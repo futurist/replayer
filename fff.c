@@ -49,9 +49,8 @@ METASTRUCT *meta = 0;
 long keyCount = 0;
 long mouseCount = 0;
 
-enum { kMaxArgs = 64 };
 int argc = 0;
-char *argv[kMaxArgs];
+char **argv;
 
 // a index number to indicate msg source
 char outputBuffer[8192];  // sufficently large buffer
@@ -59,6 +58,85 @@ int msg(int index) {
   sprintf(outputBuffer, "error %i %i", index, GetLastError());
   MessageBox(NULL, outputBuffer, "Debug Message", MB_OK);
   return index;
+}
+
+PCHAR *CommandLineToArgvA(PCHAR CmdLine, int *_argc) {
+  PCHAR *argv;
+  PCHAR _argv;
+  ULONG len;
+  ULONG argc;
+  CHAR a;
+  ULONG i, j;
+
+  BOOLEAN in_QM;
+  BOOLEAN in_TEXT;
+  BOOLEAN in_SPACE;
+
+  len = strlen(CmdLine);
+  i = ((len + 2) / 2) * sizeof(PVOID) + sizeof(PVOID);
+
+  argv = (PCHAR *)LocalAlloc(LMEM_FIXED, i + (len + 2) * sizeof(CHAR));
+
+  _argv = (PCHAR)(((PUCHAR)argv) + i);
+
+  argc = 0;
+  argv[argc] = _argv;
+  in_QM = FALSE;
+  in_TEXT = FALSE;
+  in_SPACE = TRUE;
+  i = 0;
+  j = 0;
+
+  while (CmdLine[i]) {
+    a = CmdLine[i];
+    if (in_QM) {
+      if (a == '\"') {
+        in_QM = FALSE;
+      } else {
+        _argv[j] = a;
+        j++;
+      }
+    } else {
+      switch (a) {
+        case '\"':
+          in_QM = TRUE;
+          in_TEXT = TRUE;
+          if (in_SPACE) {
+            argv[argc] = _argv + j;
+            argc++;
+          }
+          in_SPACE = FALSE;
+          break;
+        case ' ':
+        case '\t':
+        case '\n':
+        case '\r':
+          if (in_TEXT) {
+            _argv[j] = '\0';
+            j++;
+          }
+          in_TEXT = FALSE;
+          in_SPACE = TRUE;
+          break;
+        default:
+          in_TEXT = TRUE;
+          if (in_SPACE) {
+            argv[argc] = _argv + j;
+            argc++;
+          }
+          _argv[j] = a;
+          j++;
+          in_SPACE = FALSE;
+          break;
+      }
+    }
+    i++;
+  }
+  _argv[j] = '\0';
+  argv[argc] = NULL;
+
+  (*_argc) = argc;
+  return argv;
 }
 
 LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
@@ -197,19 +275,15 @@ int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR 
 
   if (!isAlreadyRunning) {
     // parse command line args
-    char *p2 = strtok(commandLine, " ");
-    while (p2 && argc < kMaxArgs - 1) {
-      argv[argc++] = p2;
-      p2 = strtok(0, " ");
-    }
-    argv[argc] = 0;
+
+    argv = CommandLineToArgvA(commandLine, &argc);
 
     // usage: exe SAVE_FILE IGNORE_KEY
     if (argc < 1) return msg(5);
 
     // get ignoreKey
     if (argc > 1) {
-      p2 = argv[1];
+      char *p2 = argv[1];
       while (p2) {
         switch ((char)*p2) {
           case '!':
