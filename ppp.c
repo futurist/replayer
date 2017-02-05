@@ -105,7 +105,11 @@ int main(int argc, char *argv[]) {
     }
 
     // usage: exe LOG_FILE
-    if (argc < 2) return msg(5);
+    if (argc < 2) {
+      sprintf(outputBuffer, "Usage: %s <log_file_path>", argv[0]);
+      MessageBox(NULL, outputBuffer, "Usage", MB_OK);
+      return 0;
+    }
 
     meta = (METASTRUCT *)calloc(sizeof(METASTRUCT), 1);
     keyRecord = (KEYBDINPUT *)calloc(sizeof(KEYBDINPUT), 1);

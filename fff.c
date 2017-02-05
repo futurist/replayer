@@ -198,8 +198,12 @@ int main(int argc, char *argv[]) {
   int isAlreadyRunning = GetLastError() == ERROR_ALREADY_EXISTS;
 
   if (!isAlreadyRunning) {
-    // usage: exe SAVE_FILE IGNORE_KEY
-    if (argc < 2) return msg(5);
+    // usage: exe LOG_FILE
+    if (argc < 2) {
+      sprintf(outputBuffer, "Usage: %s <log_file_path> [ignore_key]", argv[0]);
+      MessageBox(NULL, outputBuffer, "Usage", MB_OK);
+      return 0;
+    }
 
     // get ignoreKey
     if (argc > 2) {
