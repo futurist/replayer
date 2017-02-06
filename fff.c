@@ -248,6 +248,9 @@ int main(int argc, char *argv[]) {
     // create directory if not exists
     char **lppFile = {NULL};
     GetFullPathName(argv[1], MAX_PATH, bufferForPath, lppFile);
+    if (PathFileExists(bufferForPath)) {
+      return msg(77);
+    }
     PathRemoveFileSpec(bufferForPath);
     int retval = SHCreateDirectoryEx(NULL, (LPCTSTR)bufferForPath, NULL);
     // ERROR_SUCCESS = 0
