@@ -6,6 +6,8 @@
 #include "dpi.c"
 #include "tray.c"
 
+#define DEBUG
+
 // lcc lack below definition
 #ifndef WM_MOUSEHWHEEL
 #define WM_MOUSEHWHEEL 0x020E
@@ -23,6 +25,7 @@ HINSTANCE currentInstance;
 HANDLE logFile;
 DWORD nWritten = 0;
 char bufferForPath[MAX_PATH];
+FILE *logFile2 = NULL;
 
 HANDLE singleInstanceMutexHandle;
 HHOOK keyboardHookHandle;
@@ -53,6 +56,9 @@ METASTRUCT *meta = 0;
 long keyCount = 0;
 long mouseCount = 0;
 
+int SCREEN_WIDTH = 0;
+int SCREEN_HEIGHT = 0;
+
 // a index number to indicate msg source
 char outputBuffer[8192];  // sufficently large buffer
 /* Show error info and return error code to system
@@ -65,12 +71,27 @@ int msg(int code, char *info) {
   return code;
 }
 
+void log(char *format, ...) {
+#ifdef DEBUG
+  int count = 0;
+  int ret;
+  va_list aptr;
+  va_start(aptr, format);
+  count = vsprintf(outputBuffer, format, aptr);
+  va_end(aptr);
+  WriteFile(logFile2, outputBuffer, count, &ret, NULL);
+#endif
+}
+
 LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
   if (nCode == 0) {
+    // use MSLLHOOKSTRUCT instead of MOUSEHOOKSTRUCTEX (LL == LowLevel)
+    MSLLHOOKSTRUCT *p = (MSLLHOOKSTRUCT *)lParam;
     mouseRecord->time = GetTickCount();
 
     DWORD dwFlags = 0;
     BOOL isMouseMove = FALSE;
+
     switch (wParam) {
       case WM_MOUSEMOVE:
         isMouseMove = TRUE;
@@ -102,10 +123,8 @@ LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
         break;
     }
 
-    // use MSLLHOOKSTRUCT instead of MOUSEHOOKSTRUCTEX (LL == LowLevel)
-    MSLLHOOKSTRUCT *p = (MSLLHOOKSTRUCT *)lParam;
-    mouseRecord->dx = (p->pt.x) * (0xFFFF / (GetSystemMetrics(SM_CXSCREEN) - 1));
-    mouseRecord->dy = (p->pt.y) * (0xFFFF / (GetSystemMetrics(SM_CYSCREEN) - 1));
+    mouseRecord->dx = MulDiv(p->pt.x, 0xFFFF, SCREEN_WIDTH);
+    mouseRecord->dy = MulDiv(p->pt.y, 0xFFFF, SCREEN_HEIGHT);
     mouseRecord->mouseData = -HIWORD(~p->mouseData);
     mouseRecord->dwFlags = dwFlags | MOUSEEVENTF_ABSOLUTE;
     mouseRecord->dwExtraInfo = p->dwExtraInfo;
@@ -189,6 +208,10 @@ DWORD WINAPI ThreadedCode(LPVOID) {
   UnhookWindowsHookEx(mouseHookHandle);
   CloseHandle(logFile);
 
+#ifdef DEBUG
+  if (logFile2) CloseHandle(logFile2);
+#endif
+
   ExitProcess(0);
 
   return 0;
@@ -247,6 +270,19 @@ int main(int argc, char *argv[]) {
       /* sprintf(outputBuffer, "d %i %i %i %i %x", ignoreKey.alt, ignoreKey.shift, ignoreKey.ctrl, ignoreKey.win, ignoreKey.vkCode); */
       /* MessageBox(NULL, outputBuffer, "Debug Message", MB_OK); */
     }
+
+    SCREEN_WIDTH = (GetSystemMetrics(SM_CXSCREEN) - 1);
+    SCREEN_HEIGHT = (GetSystemMetrics(SM_CYSCREEN) - 1);
+
+#ifdef DEBUG
+    logFile2 = CreateFile("logfff.txt",           // name of the write
+                          GENERIC_WRITE,          // open for writing
+                          0,                      // do not share
+                          NULL,                   // default security
+                          CREATE_ALWAYS,          // create new file only
+                          FILE_ATTRIBUTE_NORMAL,  // normal file
+                          NULL);                  // no attr. template
+#endif
 
     meta = (METASTRUCT *)calloc(sizeof(METASTRUCT), 1);
     keyRecord = (KEYBDINPUT *)calloc(sizeof(KEYBDINPUT), 1);
