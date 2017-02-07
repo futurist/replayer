@@ -3,6 +3,7 @@
 #include <shellapi.h>
 #include <stdio.h>
 #include <windows.h>
+#include "dpi.c"
 #include "tray.c"
 
 // lcc lack below definition
@@ -103,8 +104,8 @@ LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
 
     // use MSLLHOOKSTRUCT instead of MOUSEHOOKSTRUCTEX (LL == LowLevel)
     MSLLHOOKSTRUCT *p = (MSLLHOOKSTRUCT *)lParam;
-    mouseRecord->dx = p->pt.x * (0xFFFF / GetSystemMetrics(SM_CXSCREEN));
-    mouseRecord->dy = p->pt.y * (0xFFFF / GetSystemMetrics(SM_CYSCREEN));
+    mouseRecord->dx = (p->pt.x) * (0xFFFF / (GetSystemMetrics(SM_CXSCREEN) - 1));
+    mouseRecord->dy = (p->pt.y) * (0xFFFF / (GetSystemMetrics(SM_CYSCREEN) - 1));
     mouseRecord->mouseData = -HIWORD(~p->mouseData);
     mouseRecord->dwFlags = dwFlags | MOUSEEVENTF_ABSOLUTE;
     mouseRecord->dwExtraInfo = p->dwExtraInfo;
