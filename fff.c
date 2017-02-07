@@ -3,10 +3,9 @@
 #include <shellapi.h>
 #include <stdio.h>
 #include <windows.h>
-#include "dpi.c"
 #include "tray.c"
 
-#define DEBUG
+/* #define DEBUG */
 
 // lcc lack below definition
 #ifndef WM_MOUSEHWHEEL
@@ -125,6 +124,7 @@ LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     mouseRecord->dwExtraInfo = p->dwExtraInfo;
 
     /* log(&p->pt.x, sizeof(DWORD)); */
+    /* log(&SCREEN_WIDTH, sizeof(DWORD)); */
     /* log(&mouseRecord->dx, sizeof(DWORD)); */
 
     // don't record MOUSE_MOVE if it's not moved
