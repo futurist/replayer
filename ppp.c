@@ -37,10 +37,14 @@ DWORD mode = 0;
 
 // a index number to indicate msg source
 char outputBuffer[8192];  // sufficently large buffer
-int msg(int index) {
-  sprintf(outputBuffer, "index %i lastError %i", index, GetLastError());
+/* Show error info and return error code to system
+ * {int} code: return code
+ * {char *} info: message to show
+ */
+int msg(int code, char *info) {
+  sprintf(outputBuffer, "error %i code %i\n%s", code, GetLastError(), info);
   MessageBox(NULL, outputBuffer, "Debug Message", MB_OK);
-  return index;
+  return code;
 }
 
 int readData(void *buf, size_t size, BUFFERSTRUCT *src) {
@@ -128,9 +132,9 @@ int main(int argc, char *argv[]) {
                               OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
     if (hFile != INVALID_HANDLE_VALUE) {
       BOOL bSuccess = GetFileSizeEx(hFile, &nLargeInteger);
-      if (!bSuccess) return msg(98);
+      if (!bSuccess) return msg(98, "Error get file size");
     } else {
-      return msg(99);
+      return msg(99, "Error get file handle");
     }
 
     // read all content
@@ -139,7 +143,7 @@ int main(int argc, char *argv[]) {
     DWORD nRead;
     if (!ReadFile(hFile, buf, fsize, &nRead, NULL)) {
       CloseHandle(hFile);
-      return msg(98);
+      return msg(98, "Error read file");
     }
     CloseHandle(hFile);
 
@@ -152,7 +156,7 @@ int main(int argc, char *argv[]) {
     /* MessageBox(NULL, commandLine, "Debug Message", MB_OK); */
 
     if (readData(meta, sizeof(METASTRUCT), &source) != 1) {
-      msg(100);
+      msg(100, "Error read meta data");
       return 2;
     }
     prevTime = meta->startTime;
@@ -162,10 +166,10 @@ int main(int argc, char *argv[]) {
 #endif
 
     while (running && source.point < fsize) {
-      if (!readData(&mode, sizeof(DWORD), &source)) msg(101);
+      if (!readData(&mode, sizeof(DWORD), &source)) msg(101, "Error read input data");
       // it's mouse event
       if (mode == INPUT_MOUSE) {
-        if (!readData(mouseRecord, sizeof(MOUSEINPUT), &source)) msg(102);
+        if (!readData(mouseRecord, sizeof(MOUSEINPUT), &source)) msg(102, "Error read record data");
         timeSpan = mouseRecord->time - prevTime;
         prevTime = mouseRecord->time;
         if (timeSpan > 0) sleep(timeSpan);
@@ -186,7 +190,7 @@ int main(int argc, char *argv[]) {
         int errCount = 3;
         // sendInput fail, retry
         while (errCount-- && (ret == 0)) {
-          msg(555);
+          msg(555, "Error send input");
           sleep(1);
           ret = SendInput(1, &ip, sizeof(INPUT));
         }

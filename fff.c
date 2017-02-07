@@ -51,10 +51,14 @@ long mouseCount = 0;
 
 // a index number to indicate msg source
 char outputBuffer[8192];  // sufficently large buffer
-int msg(int index) {
-  sprintf(outputBuffer, "error %i %i", index, GetLastError());
+/* Show error info and return error code to system
+ * {int} code: return code
+ * {char *} info: message to show
+ */
+int msg(int code, char *info) {
+  sprintf(outputBuffer, "error %i code %i\n%s", code, GetLastError(), info);
   MessageBox(NULL, outputBuffer, "Debug Message", MB_OK);
-  return index;
+  return code;
 }
 
 LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
@@ -110,8 +114,8 @@ LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     prevData2 = mouseRecord->dy;
 
     DWORD mode = INPUT_MOUSE;
-    if (!WriteFile(logFile, &mode, sizeof(DWORD), &nWritten, NULL)) msg(200);
-    if (!WriteFile(logFile, mouseRecord, sizeof(MOUSEINPUT), &nWritten, NULL)) msg(201);
+    if (!WriteFile(logFile, &mode, sizeof(DWORD), &nWritten, NULL)) msg(200, "Write file error");
+    if (!WriteFile(logFile, mouseRecord, sizeof(MOUSEINPUT), &nWritten, NULL)) msg(201, "Write file error");
     mouseCount++;
   }
   return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -159,8 +163,8 @@ LRESULT CALLBACK KeyboardHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     keyRecord->dwFlags = EXTENDED | UP;
 
     DWORD mode = INPUT_KEYBOARD;
-    if (!WriteFile(logFile, &mode, sizeof(DWORD), &nWritten, NULL)) msg(300);
-    if (!WriteFile(logFile, keyRecord, sizeof(KEYBDINPUT), &nWritten, NULL)) msg(301);
+    if (!WriteFile(logFile, &mode, sizeof(DWORD), &nWritten, NULL)) msg(300, "Write file error");
+    if (!WriteFile(logFile, keyRecord, sizeof(KEYBDINPUT), &nWritten, NULL)) msg(301, "Write file error");
     keyCount++;
   }
 
@@ -249,13 +253,13 @@ int main(int argc, char *argv[]) {
     char **lppFile = {NULL};
     GetFullPathName(argv[1], MAX_PATH, bufferForPath, lppFile);
     if (PathFileExists(bufferForPath)) {
-      return msg(77);
+      return msg(77, "Log file exits");
     }
     PathRemoveFileSpec(bufferForPath);
     int retval = SHCreateDirectoryEx(NULL, (LPCTSTR)bufferForPath, NULL);
     // ERROR_SUCCESS = 0
     if (retval != ERROR_SUCCESS && retval != 183) {  // 183 = ERROR_ALREADY_EXISTS
-      return msg(retval);
+      return msg(retval, "Create directory error");
     }
 
     // get file
@@ -267,10 +271,10 @@ int main(int argc, char *argv[]) {
                          FILE_ATTRIBUTE_NORMAL,  // normal file
                          NULL);                  // no attr. template
     if (logFile == INVALID_HANDLE_VALUE) {
-      return msg(98);
+      return msg(98, "Create file error");
     }
 
-    if (!WriteFile(logFile, meta, sizeof(METASTRUCT), &nWritten, NULL)) msg(100);
+    if (!WriteFile(logFile, meta, sizeof(METASTRUCT), &nWritten, NULL)) msg(100, "Write file error");
 
     keyboardHookHandle = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardHookDelegate, currentInstance, 0);
     mouseHookHandle = SetWindowsHookEx(WH_MOUSE_LL, MouseHookDelegate, currentInstance, 0);
