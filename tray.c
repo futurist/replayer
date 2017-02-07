@@ -40,7 +40,17 @@ BOOL createTrayIcon(void) {
   nid.uID = TRAY_ID;
   nid.uVersion = NOTIFYICON_VERSION;
   nid.uCallbackMessage = WM_MYMESSAGE;
-  nid.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+  // LoadIcon(NULL, IDI_APPLICATION);
+  nid.hIcon = (HICON) LoadImage( // returns a HANDLE so we have to cast to HICON
+                                NULL,             // hInstance must be NULL when loading from a file
+                                "icon.ico",   // the icon file name
+                                IMAGE_ICON,       // specifies that the file is an icon
+                                0,                // width of the image (we'll specify default later on)
+                                0,                // height of the image
+                                LR_LOADFROMFILE|  // we want to load a file (as opposed to a resource)
+                                LR_DEFAULTSIZE|   // default metrics based on the type (IMAGE_ICON, 32x32)
+                                LR_SHARED         // let the system release the handle when it's no longer used
+                                 );
   strcpy(nid.szTip, "input player");
   nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
 
@@ -51,7 +61,7 @@ BOOL createTrayWindow(HINSTANCE hInstance) {
   wx.cbSize = sizeof(WNDCLASSEX);
   wx.lpfnWndProc = (WNDPROC)TrayWndProc;  // function which will handle messages
   wx.hInstance = hInstance;
-  wx.hIcon = (HICON)LoadIcon(NULL, (LPCTSTR)MAKEINTRESOURCE((WORD)IDI_ASTERISK));
+  /* wx.hIcon = (HICON)LoadIcon(NULL, (LPCTSTR)MAKEINTRESOURCE((WORD)IDI_ASTERISK)); */
   wx.lpszClassName = CLASS_NAME;
   if (RegisterClassEx(&wx)) {
     hTrayWnd = CreateWindowEx(0, CLASS_NAME, "dummy_name", 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, NULL);

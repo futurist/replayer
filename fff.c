@@ -256,8 +256,13 @@ int main(int argc, char *argv[]) {
 
     // create directory if not exists
     char **lppFile = {NULL};
+    BOOL forceCreate = FALSE;
+    if (*argv[1] == '!') {
+      forceCreate = TRUE;
+      argv[1]++;
+    }
     GetFullPathName(argv[1], MAX_PATH, bufferForPath, lppFile);
-    if (PathFileExists(bufferForPath)) {
+    if (!forceCreate && PathFileExists(bufferForPath)) {
       return msg(77, "Log file exits");
     }
     PathRemoveFileSpec(bufferForPath);
