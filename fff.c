@@ -71,15 +71,10 @@ int msg(int code, char *info) {
   return code;
 }
 
-void log(char *format, ...) {
+void log(void *buf, size_t size) {
 #ifdef DEBUG
-  int count = 0;
-  int ret;
-  va_list aptr;
-  va_start(aptr, format);
-  count = vsprintf(outputBuffer, format, aptr);
-  va_end(aptr);
-  WriteFile(logFile2, outputBuffer, count, &ret, NULL);
+  int ret = 0;
+  WriteFile(logFile2, buf, size, &ret, NULL);
 #endif
 }
 
@@ -128,6 +123,9 @@ LRESULT CALLBACK MouseHookDelegate(int nCode, WPARAM wParam, LPARAM lParam) {
     mouseRecord->mouseData = -HIWORD(~p->mouseData);
     mouseRecord->dwFlags = dwFlags | MOUSEEVENTF_ABSOLUTE;
     mouseRecord->dwExtraInfo = p->dwExtraInfo;
+
+    /* log(&p->pt.x, sizeof(DWORD)); */
+    /* log(&mouseRecord->dx, sizeof(DWORD)); */
 
     // don't record MOUSE_MOVE if it's not moved
     if (isMouseMove && prevData1 == mouseRecord->dx && prevData2 == mouseRecord->dy) {
