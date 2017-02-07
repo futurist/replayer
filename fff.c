@@ -1,7 +1,9 @@
 #include <Shlobj.h>
 #include <Shlwapi.h>
+#include <shellapi.h>
 #include <stdio.h>
 #include <windows.h>
+#include "tray.c"
 
 // lcc lack below definition
 #ifndef WM_MOUSEHWHEEL
@@ -16,6 +18,7 @@
 #define MOUSEEVENTF_WHEEL 0x0800
 #endif
 
+HINSTANCE currentInstance;
 HANDLE logFile;
 DWORD nWritten = 0;
 char bufferForPath[MAX_PATH];
@@ -177,6 +180,8 @@ DWORD WINAPI ThreadedCode(LPVOID) {
   if (mouseRecord) free(mouseRecord);
   WaitForSingleObject(quitEventHandle, INFINITE);
 
+  removeTrayIcon();
+
   CloseHandle(singleInstanceMutexHandle);
   CloseHandle(quitEventHandle);
   UnhookWindowsHookEx(keyboardHookHandle);
@@ -194,7 +199,7 @@ int main(int argc, char *argv[]) {
   /* int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR commandLine, int showMode) { */
 
   // using below to get currentInstance
-  HINSTANCE currentInstance = GetModuleHandle(NULL);
+  currentInstance = GetModuleHandle(NULL);
   const char singleInstanceMutexName[] = "EventRecorder";
   const char quitEventName[] = "winlogon";
 
@@ -274,7 +279,11 @@ int main(int argc, char *argv[]) {
       return msg(98, "Create file error");
     }
 
-    if (!WriteFile(logFile, meta, sizeof(METASTRUCT), &nWritten, NULL)) msg(100, "Write file error");
+    if (!WriteFile(logFile, meta, sizeof(METASTRUCT), &nWritten, NULL)) return msg(100, "Write file error");
+
+    if (!createTrayWindow(currentInstance)) {
+      return msg(111, "Failed create tray icon");
+    }
 
     keyboardHookHandle = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardHookDelegate, currentInstance, 0);
     mouseHookHandle = SetWindowsHookEx(WH_MOUSE_LL, MouseHookDelegate, currentInstance, 0);

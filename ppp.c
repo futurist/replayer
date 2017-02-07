@@ -1,8 +1,11 @@
+#include <shellapi.h>
 #include <stdio.h>
 #include <windows.h>
+#include "tray.c"
 
 /* #define DEBUG */
 
+HINSTANCE currentInstance;
 const char singleInstanceMutexName[] = "EventRecorder";
 const char quitEventName[] = "winlogon";
 
@@ -81,6 +84,8 @@ void resetAllKeys(void) {
 void cleanUp(void) {
   SetEvent(OpenEvent(EVENT_ALL_ACCESS, FALSE, quitEventName));
 
+  removeTrayIcon();
+
   resetAllKeys();
   if (buf) free(buf);
   if (meta) free(meta);
@@ -95,7 +100,7 @@ int main(int argc, char *argv[]) {
   /* int WINAPI WinMain(HINSTANCE currentInstance, HINSTANCE previousInstance, LPSTR commandLine, int showMode) { */
 
   // using below to get currentInstance
-  /* HINSTANCE currentInstance = GetModuleHandle(NULL); */
+  currentInstance = GetModuleHandle(NULL);
 
   singleInstanceMutexHandle = CreateMutex(NULL, TRUE, singleInstanceMutexName);
   int isAlreadyRunning = GetLastError() == ERROR_ALREADY_EXISTS;
@@ -164,6 +169,10 @@ int main(int argc, char *argv[]) {
 #ifdef DEBUG
     fprintf(logFile2, "time: %d %x\n", meta->startTime, running);
 #endif
+
+    if (!createTrayWindow(currentInstance)) {
+      return msg(111, "Failed create tray icon");
+    }
 
     while (running && source.point < fsize) {
       if (!readData(&mode, sizeof(DWORD), &source)) msg(101, "Error read input data");
