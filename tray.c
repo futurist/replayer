@@ -40,17 +40,18 @@ BOOL createTrayIcon(void) {
   nid.uID = TRAY_ID;
   nid.uVersion = NOTIFYICON_VERSION;
   nid.uCallbackMessage = WM_MYMESSAGE;
-  // LoadIcon(NULL, IDI_APPLICATION);
-  nid.hIcon = (HICON) LoadImage( // returns a HANDLE so we have to cast to HICON
-                                NULL,             // hInstance must be NULL when loading from a file
-                                "icon.ico",   // the icon file name
-                                IMAGE_ICON,       // specifies that the file is an icon
-                                0,                // width of the image (we'll specify default later on)
-                                0,                // height of the image
-                                LR_LOADFROMFILE|  // we want to load a file (as opposed to a resource)
-                                LR_DEFAULTSIZE|   // default metrics based on the type (IMAGE_ICON, 32x32)
-                                LR_SHARED         // let the system release the handle when it's no longer used
-                                 );
+  nid.hIcon = LoadIcon((HINSTANCE)NULL, (char *)IDI_APPLICATION);
+  /* msg(MAKEINTRESOURCE(IDI_ASTERISK), ""); */
+  /* nid.hIcon = (HICON) LoadImage( // returns a HANDLE so we have to cast to HICON */
+  /*                               NULL,             // hInstance must be NULL when loading from a file */
+  /*                               "icon.ico",   // the icon file name */
+  /*                               IMAGE_ICON,       // specifies that the file is an icon */
+  /*                               0,                // width of the image (we'll specify default later on) */
+  /*                               0,                // height of the image */
+  /*                               LR_LOADFROMFILE|  // we want to load a file (as opposed to a resource) */
+  /*                               LR_DEFAULTSIZE|   // default metrics based on the type (IMAGE_ICON, 32x32) */
+  /*                               LR_SHARED         // let the system release the handle when it's no longer used */
+  /*                                ); */
   strcpy(nid.szTip, "input player");
   nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
 

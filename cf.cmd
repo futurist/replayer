@@ -10,7 +10,7 @@
 :build()
     lcc -c -Ic:\lcc\include -A %fileName%.c
     if ERRORLEVEL 1 goto postCleanup()
-    lcclnk -subsystem windows -s %fileName%.obj %libs% -o %fileName%.exe
+    lcclnk -subsystem windows -s %fileName%.obj app.res %libs% -o %fileName%.exe
 
 :postCleanup()
     del %fileName%.obj 2>nul

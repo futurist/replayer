@@ -82,7 +82,7 @@ void resetAllKeys(void) {
 }
 
 void cleanUp(void) {
-  SetEvent(OpenEvent(EVENT_ALL_ACCESS, FALSE, quitEventName));
+  if (running) SetEvent(OpenEvent(EVENT_ALL_ACCESS, FALSE, quitEventName));
 
   removeTrayIcon();
 

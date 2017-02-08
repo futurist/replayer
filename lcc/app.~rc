@@ -1,0 +1,7 @@
+/* Wedit generated resource file */
+#ifdef __LCC__
+#include <windows.h>
+#endif
+#include "resources.h"
+
+1 ICON "f:\\crx\\replayer\\tmpres9112221_icon0101.ico"
