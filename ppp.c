@@ -26,6 +26,7 @@ typedef struct BUFFERSTRUCT {
 HANDLE singleInstanceMutexHandle;
 HANDLE quitEventHandle;
 int running = TRUE;
+int isFinished = FALSE;
 
 METASTRUCT *meta = NULL;
 KEYBDINPUT *keyRecord = NULL;
@@ -65,9 +66,7 @@ DWORD WINAPI ThreadedCode(LPVOID) {
 
   running = FALSE;
 
-  /* ExitProcess(0); */
-
-  return !running;
+  return !isFinished;
 }
 
 void resetAllKeys(void) {
@@ -82,7 +81,10 @@ void resetAllKeys(void) {
 }
 
 void cleanUp(void) {
-  if (running) SetEvent(OpenEvent(EVENT_ALL_ACCESS, FALSE, quitEventName));
+  if (isFinished) {
+    // below will make running always FALSE!
+    SetEvent(OpenEvent(EVENT_ALL_ACCESS, FALSE, quitEventName));
+  }
 
   removeTrayIcon();
 
@@ -174,7 +176,7 @@ int main(int argc, char *argv[]) {
       return msg(111, "Failed create tray icon");
     }
 
-    while (running && source.point < fsize) {
+    while (running && !isFinished) {
       if (!readData(&mode, sizeof(DWORD), &source)) msg(101, "Error read input data");
       // it's mouse event
       if (mode == INPUT_MOUSE) {
@@ -234,6 +236,7 @@ int main(int argc, char *argv[]) {
         /* keybd_event(keyRecord->vkCode, keyRecord->scanCode, isExtended | isUp, */
         /*             keyRecord->dwExtraInfo); */
       }
+      isFinished = source.point >= fsize;
     }
 
     cleanUp();
@@ -245,5 +248,5 @@ int main(int argc, char *argv[]) {
 
   /* printf("exit code %i", !running); */
   /* ExitProcess(!running); */
-  return !running;
+  return !isFinished;
 }
